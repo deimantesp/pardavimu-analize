@@ -160,6 +160,32 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 /* Loading */
 #loading { position: fixed; inset: 0; background: rgba(240,242,245,0.92); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: #0A2342; z-index: 999; }
 .footer { text-align: center; font-size: 11px; color: #c7c7cc; padding: 0.75rem; }
+
+/* Calendar overlay */
+#calendar-overlay { display: none; position: fixed; inset: 0; z-index: 500; background: #f0f2f5; flex-direction: column; overflow-y: auto; }
+#calendar-overlay.open { display: flex; }
+.cal-body { padding: 1rem 1.5rem 2rem; max-width: 1700px; width: 100%; margin: 0 auto; }
+.cal-dow-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 6px; }
+.cal-dow-row div { text-align: center; font-size: 11px; font-weight: 700; color: #6e6e73; text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 0; }
+.cal-dow-row div.cal-weekend-hdr { color: #b0b0b8; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-week-gap { grid-column: 1 / -1; height: 4px; }
+.cal-cell { background: white; border-radius: 10px; padding: 8px 9px; min-height: 110px; border: 1.5px solid #e5e5ea; }
+.cal-cell.is-today  { border-color: #2B6CB0; box-shadow: 0 0 0 1px #2B6CB0; }
+.cal-cell.is-weekend { background: #f8f9fb; }
+.cal-cell.is-holiday { border-color: #D97706; }
+.cal-cell.is-past   { opacity: 0.55; }
+.cal-day-num { font-size: 19px; font-weight: 800; line-height: 1; color: #0A2342; }
+.cal-cell.is-today .cal-day-num { color: #2B6CB0; }
+.cal-day-month { font-size: 10px; color: #8e8e93; font-weight: 600; margin-bottom: 2px; }
+.cal-holiday-label { font-size: 9px; font-weight: 700; color: #D97706; background: #FEF3DA; border-radius: 3px; padding: 1px 5px; margin: 3px 0 4px; display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-order { font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; cursor: default; }
+.cal-o-overdue  { background: #fce9e7; color: #C0392B; }
+.cal-o-pending  { background: #E3EEF8; color: #1A4F80; }
+.cal-o-done     { background: #e6f4ec; color: #1A7A4A; }
+.cal-o-cancelled{ background: #f2f2f7; color: #8e8e93; }
+.cal-more { font-size: 9px; color: #8e8e93; margin-top: 3px; }
+.cal-empty { font-size: 11px; color: #d1d1d6; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -319,6 +345,23 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
   </div>
 </div>
 
+<!-- Calendar overlay -->
+<div id="calendar-overlay">
+  <div class="ov-header" style="background:#1a3a5c">
+    <button class="ov-back" onclick="closeCalendar()">← Atgal</button>
+    <span class="ov-title">Krovinių kalendorius</span>
+    <span class="ov-count" id="cal-range"></span>
+  </div>
+  <div class="cal-body">
+    <div class="cal-dow-row">
+      <div>Pirmadienis</div><div>Antradienis</div><div>Trečiadienis</div>
+      <div>Ketvirtadienis</div><div>Penktadienis</div>
+      <div class="cal-weekend-hdr">Šeštadienis</div><div class="cal-weekend-hdr">Sekmadienis</div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+</div>
+
 <script>
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkSb05g43mOWiI3PABzhHULN7jeF79C2tmYfxZ0UXCGygXXYJ-GMgmimdZZwTWLzPpuE5mzUGKoUqM/pub?gid=0&single=true&output=csv';
 
@@ -445,7 +488,7 @@ function renderKPIs(data) {
     <div class="kpi-card c-amber"><div class="kpi-label">Neįvykdyta</div><div class="kpi-value">${pending}</div><div class="kpi-sub">Laukia vykdymo</div></div>
     <div class="kpi-card c-red clickable" onclick="openOverduePage()"><div class="kpi-label">Vėluoja ⚠️</div><div class="kpi-value">${overdue}</div><div class="kpi-sub">Spustelėk peržiūrėti</div></div>
     <div class="kpi-card c-green"><div class="kpi-label">Šiandien kroviniai</div><div class="kpi-value">${todayLoad}</div><div class="kpi-sub">${today}</div></div>
-    <div class="kpi-card c-purple"><div class="kpi-label">Šią savaitę</div><div class="kpi-value">${thisWeekN}</div><div class="kpi-sub">nuo ${weekStartStr}</div></div>
+    <div class="kpi-card c-purple clickable" onclick="openCalendar()"><div class="kpi-label">Šią savaitę</div><div class="kpi-value">${thisWeekN}</div><div class="kpi-sub">Spustelėk · kalendorius</div></div>
     <div class="kpi-card c-navy"><div class="kpi-label">Šio mėn.</div><div class="kpi-value">${thisMonthN}</div><div class="kpi-sub">Vid. vykd.: ${avgLead !== null ? avgLead + ' d.' : '—'}</div></div>
   `;
   document.getElementById('hdr-date').textContent = now.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -826,6 +869,115 @@ function openOverduePage() {
 
 function closeOverduePage() {
   document.getElementById('overdue-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* ── Calendar ── */
+function getEaster(year) {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day   = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+
+function getLtHoliday(date) {
+  const m = date.getMonth() + 1, d = date.getDate(), y = date.getFullYear();
+  const fixed = {
+    '1-1':  'Naujieji metai',
+    '2-16': 'Valstybės atkūrimo d.',
+    '3-11': 'Nepriklausomybės d.',
+    '5-1':  'Darbo diena',
+    '6-24': 'Joninės',
+    '7-6':  'Valstybės diena',
+    '8-15': 'Žolinė',
+    '11-1': 'Visų Šventųjų d.',
+    '12-24':'Kūčios',
+    '12-25':'Kalėdos',
+    '12-26':'Kalėdos (II)',
+  };
+  const key = m + '-' + d;
+  if (fixed[key]) return fixed[key];
+  const easter = getEaster(y);
+  const easterD = d => { const e = new Date(easter); e.setDate(e.getDate() + d); return e; };
+  if (date.toDateString() === easter.toDateString())        return 'Velykos';
+  if (date.toDateString() === easterD(1).toDateString())   return 'Velykos (II)';
+  return null;
+}
+
+function toDateStr(d) { return d.toISOString().substring(0, 10); }
+
+function openCalendar() {
+  const now    = new Date();
+  const todayStr = toDateStr(now);
+
+  // Current week Monday
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - ((now.getDay() + 6) % 7));
+  weekStart.setHours(0, 0, 0, 0);
+
+  // 3 weeks = 21 days
+  const days = Array.from({ length: 21 }, (_, i) => {
+    const d = new Date(weekStart); d.setDate(d.getDate() + i); return d;
+  });
+
+  // Orders indexed by krovimo_data
+  const byDate = {};
+  ALL_DATA.forEach(d => {
+    if (!d.krovimo_data || !/^\d{4}-\d{2}-\d{2}$/.test(d.krovimo_data)) return;
+    (byDate[d.krovimo_data] = byDate[d.krovimo_data] || []).push(d);
+  });
+
+  document.getElementById('cal-range').textContent =
+    days[0].toLocaleDateString('lt-LT') + ' – ' + days[20].toLocaleDateString('lt-LT');
+
+  let html = '';
+  days.forEach((d, i) => {
+    if (i > 0 && i % 7 === 0) html += '<div class="cal-week-gap"></div>';
+    const ds      = toDateStr(d);
+    const isToday = ds === todayStr;
+    const isPast  = ds < todayStr;
+    const dow     = (d.getDay() + 6) % 7;
+    const isWknd  = dow >= 5;
+    const holiday = getLtHoliday(d);
+    const orders  = byDate[ds] || [];
+    const showMonth = d.getDate() === 1 || i === 0;
+
+    const cls = ['cal-cell',
+      isToday  ? 'is-today'   : '',
+      isWknd   ? 'is-weekend' : '',
+      holiday  ? 'is-holiday' : '',
+      (isPast && !isToday) ? 'is-past' : '',
+    ].filter(Boolean).join(' ');
+
+    const MAX = 4;
+    const orderHtml = orders.slice(0, MAX).map(o => {
+      const oc = o.busena === 'Atšaukta' ? 'cal-o-cancelled'
+               : (o.busena === 'Pristatyta' || o.busena === 'Išsiųsta') ? 'cal-o-done'
+               : isOverdue(o) ? 'cal-o-overdue'
+               : 'cal-o-pending';
+      return `<span class="cal-order ${oc}" title="${o.uzsakovas} · ${o.produktas} · ${o.busena}">${o.uzsakovas}</span>`;
+    }).join('');
+    const more = orders.length > MAX ? `<div class="cal-more">+${orders.length - MAX} dar</div>` : '';
+
+    html += `<div class="${cls}">
+      <div class="cal-day-num">${d.getDate()}</div>
+      ${showMonth ? `<div class="cal-day-month">${MONTH_LT[d.getMonth()]}</div>` : ''}
+      ${holiday   ? `<div class="cal-holiday-label">${holiday}</div>` : ''}
+      ${orders.length ? orderHtml + more : '<div class="cal-empty">—</div>'}
+    </div>`;
+  });
+
+  document.getElementById('cal-grid').innerHTML = html;
+  document.getElementById('calendar-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCalendar() {
+  document.getElementById('calendar-overlay').classList.remove('open');
   document.body.style.overflow = '';
 }
 
