@@ -207,7 +207,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 
 <div class="page-header">
   <div class="header-title">
-    <h1>Pardavimų analizė</h1>
+    <h1>Pardavimų analizė · <span id="title-year"></span></h1>
     <p>Perlito užsakymų stebėjimas · automatiškai atsinaujina kas 5 min.</p>
   </div>
   <div class="header-meta">
@@ -369,6 +369,11 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
     <button class="ov-back" onclick="closePendingPage()">← Atgal</button>
     <span class="ov-title">Neįvykdyti užsakymai</span>
     <span class="ov-count" id="pend-count"></span>
+    <select id="pend-sort" onchange="openPendingPage()" style="margin-left:auto;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:white;border-radius:8px;padding:5px 10px;cursor:pointer;outline:none">
+      <option value="date">↕ Krovimo data</option>
+      <option value="status">↕ Būsena</option>
+      <option value="wait">↕ Laukia</option>
+    </select>
   </div>
   <div class="ov-body">
     <div style="overflow-x:auto">
@@ -478,8 +483,9 @@ function calcM3(rec) {
   const bbMatch = komUp.match(/(\d+)\s*BB/);
   if (bbMatch) return parseFloat(bbMatch[1]) * 1.5;
 
-  // Fixed-volume products: 1 truck = 72 m³ (LT: Ekstra = Extra)
+  // Fixed-volume products
   if (/^(premium|extra|ekstra|medium)/.test(prod)) return 72;
+  if (prod === 'palaidas') return 92;
 
   // Mix: parse from comment
   if (prod === 'mix') {
@@ -588,6 +594,8 @@ function renderKPIs(data) {
 
   let pendingM3 = 0, pendingM3Unknown = 0;
   data.filter(isPending).forEach(d => { const v = calcM3(d); v !== null ? pendingM3 += v : pendingM3Unknown++; });
+  let totalM3 = 0;
+  data.forEach(d => { const v = calcM3(d); if (v) totalM3 += v; });
 
   const leads = data.filter(d => d.busena === 'Pristatyta' || d.busena === 'Išsiųsta')
     .map(d => daysBetween(parseDate(d.uzsakymo_data), parseDate(d.krovimo_data)))
@@ -595,13 +603,14 @@ function renderKPIs(data) {
   const avgLead = leads.length ? Math.round(leads.reduce((a, b) => a + b, 0) / leads.length) : null;
 
   document.getElementById('kpi-row').innerHTML = `
-    <div class="kpi-card c-blue"><div class="kpi-label">Viso užsakymų</div><div class="kpi-value">${data.length}</div><div class="kpi-sub">Visų laikų</div></div>
+    <div class="kpi-card c-blue"><div class="kpi-label">Viso užsakymų</div><div class="kpi-value">${data.length}</div><div class="kpi-sub">${totalM3.toLocaleString('lt-LT')} m³ iš viso</div></div>
     <div class="kpi-card c-amber clickable" onclick="openPendingPage()"><div class="kpi-label">Neįvykdyta</div><div class="kpi-value">${pending}</div><div class="kpi-sub">${pendingM3 ? pendingM3 + (pendingM3Unknown ? '+?' : '') + ' m³ · ' : ''}Spustelėk</div></div>
     <div class="kpi-card c-red clickable" onclick="openOverduePage()"><div class="kpi-label">Vėluoja ⚠️</div><div class="kpi-value">${overdue}</div><div class="kpi-sub">Spustelėk peržiūrėti</div></div>
     <div class="kpi-card c-green"><div class="kpi-label">Šiandien kroviniai</div><div class="kpi-value">${todayLoad}</div><div class="kpi-sub">${today}</div></div>
     <div class="kpi-card c-purple clickable" onclick="openCalendar()"><div class="kpi-label">Šią savaitę</div><div class="kpi-value">${thisWeekN}</div><div class="kpi-sub">Spustelėk · kalendorius</div></div>
     <div class="kpi-card c-navy"><div class="kpi-label">Šio mėn.</div><div class="kpi-value">${thisMonthN}</div><div class="kpi-sub">Vid. vykd.: ${avgLead !== null ? avgLead + ' d.' : '—'}</div></div>
   `;
+  document.getElementById('title-year').textContent = now.getFullYear() + ' m.';
   document.getElementById('hdr-date').textContent = now.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
   document.getElementById('hdr-total').textContent = `${data.length} užsakymų iš viso`;
 }
@@ -637,11 +646,12 @@ function renderMonthly(data) {
 
 /* ── Customer ranking ── */
 function renderCustomers(data) {
-  const counts = {}, last = {};
+  const counts = {}, last = {}, m3tot = {};
   data.forEach(d => {
     if (!d.uzsakovas) return;
     counts[d.uzsakovas] = (counts[d.uzsakovas] || 0) + 1;
     if (!last[d.uzsakovas] || d.uzsakymo_data > last[d.uzsakovas]) last[d.uzsakovas] = d.uzsakymo_data;
+    const v = calcM3(d); if (v) m3tot[d.uzsakovas] = (m3tot[d.uzsakovas] || 0) + v;
   });
   const ranked = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 20);
   const max = ranked[0]?.[1] || 1;
@@ -654,11 +664,15 @@ function renderCustomers(data) {
       const ago = lastDt ? daysBetween(lastDt, now) : null;
       const agoStr = ago === 0 ? 'šiandien' : ago !== null ? ago + ' d. atgal' : '—';
       const medal = ['🥇','🥈','🥉'][i] || '';
+      const m3 = m3tot[name] || 0;
       return `<tr>
         <td style="font-weight:800;color:#0A2342;width:26px">${medal || (i+1)}</td>
         <td style="font-weight:600;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</td>
         <td style="width:90px"><div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${Math.round(cnt/max*100)}%"></div></div></td>
-        <td style="font-weight:800;font-size:14px;text-align:right;padding-right:8px">${cnt}</td>
+        <td style="text-align:right;padding-right:6px;white-space:nowrap">
+          <span style="font-weight:800;font-size:14px">${cnt}</span>
+          <span style="font-size:11px;color:#8e8e93;margin-left:4px">${m3 ? m3.toLocaleString('lt-LT') + ' m³' : ''}</span>
+        </td>
         <td style="font-size:11px;color:#8e8e93;white-space:nowrap">${agoStr}</td>
       </tr>`;
     }).join('') + '</tbody></table>';
@@ -779,7 +793,8 @@ function buildCustomerRows(data) {
     const products = [...new Set(c.orders.map(o => o.produktas).filter(Boolean))].sort().join(', ');
     const pendingOrders = c.orders.filter(isPending).sort((a, b) => (a.krovimo_data || '').localeCompare(b.krovimo_data || ''));
     const pending = pendingOrders.length;
-    return { name: c.name, first, last, ago, count: c.orders.length, products, pending, pendingOrders };
+    let custM3 = 0; c.orders.forEach(o => { const v = calcM3(o); if (v) custM3 += v; });
+    return { name: c.name, first, last, ago, count: c.orders.length, products, pending, pendingOrders, custM3 };
   });
 }
 
@@ -838,7 +853,7 @@ function renderCustomerTable(rows) {
       <td style="font-size:12px;color:#8e8e93">${r.first || '—'}</td>
       <td style="font-size:12px;font-weight:600">${r.last || '—'}</td>
       <td>${agoHtml}</td>
-      <td style="font-weight:800;font-size:14px">${r.count}</td>
+      <td style="white-space:nowrap"><span style="font-weight:800;font-size:14px">${r.count}</span><br><span style="font-size:11px;color:#8e8e93">${r.custM3 ? r.custM3.toLocaleString('lt-LT') + ' m³' : '—'}</span></td>
       <td style="font-size:11px;color:#6e6e73;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.products}">${r.products || '—'}</td>
       <td>${pendHtml}</td>
     </tr>${expandHtml}`;
@@ -986,11 +1001,22 @@ function closeOverduePage() {
 /* ── Pending page ── */
 function openPendingPage() {
   const now = new Date();
+  const sortMode = document.getElementById('pend-sort')?.value || 'date';
+  const STATUS_ORDER = { 'vykdoma': 0, 'priimta': 1, 'gauta': 2 };
   const pending = ALL_DATA.filter(isPending)
     .map(d => ({ ...d, daysWaiting: daysBetween(parseDate(d.uzsakymo_data), now) }))
     .sort((a, b) => {
-      // Overdue first, then by krovimo_data asc (soonest first)
       const aOd = isOverdue(a), bOd = isOverdue(b);
+      if (sortMode === 'status') {
+        const as = STATUS_ORDER[(a.busena||'').toLowerCase()] ?? 9;
+        const bs = STATUS_ORDER[(b.busena||'').toLowerCase()] ?? 9;
+        if (as !== bs) return as - bs;
+        return (a.krovimo_data || '9999').localeCompare(b.krovimo_data || '9999');
+      }
+      if (sortMode === 'wait') {
+        return (b.daysWaiting || 0) - (a.daysWaiting || 0);
+      }
+      // default: date — overdue first, then krovimo_data
       if (aOd !== bOd) return aOd ? -1 : 1;
       return (a.krovimo_data || '9999').localeCompare(b.krovimo_data || '9999');
     });
