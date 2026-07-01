@@ -531,10 +531,12 @@ async function loadData() {
 
 /* ── Name normalization ── */
 function normalizeCustomerKey(name) {
-  return name.trim().toLowerCase()
-    .replace(/[.,;]+$/, '')          // trailing punctuation
+  const n = name.trim().toLowerCase()
+    .replace(/[.,;]+$/, '')
     .replace(/\s+/g, ' ')
     .replace(/k{1,2}(?:il|li)/g, 'kkil');  // kekila/kekkila/kekklia → kekkila
+  if (n.startsWith('pindstr')) return 'pindstrup';  // PINDSTRUP/PINDSTRUB + visi sufiksai
+  return n;
 }
 
 function canonicalizeNames(data) {
