@@ -232,7 +232,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
       <div id="customer-ranking"></div>
     </div>
     <div class="card">
-      <div class="card-title">Produktai</div>
+      <div class="card-title">Produktai <span class="card-title-sub">m³</span></div>
       <div class="chart-wrap" style="height:155px"><canvas id="product-chart"></canvas></div>
       <div class="card-title" style="margin-top:1rem">Transportas</div>
       <div class="chart-wrap" style="height:115px"><canvas id="transport-chart"></canvas></div>
@@ -303,6 +303,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
             <th>Užsakyta</th>
             <th>Krovimas</th>
             <th>Produktas</th>
+            <th style="text-align:right">m³</th>
             <th>Klientas</th>
             <th>Užs. nr.</th>
             <th>Būsena</th>
@@ -337,6 +338,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
             <th>Krovimas</th>
             <th>Vėluoja</th>
             <th>Produktas</th>
+            <th style="text-align:right">m³</th>
             <th>Klientas</th>
             <th>Užs. nr.</th>
             <th>Būsena</th>
@@ -367,6 +369,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
             <th>Krovimas</th>
             <th>Laukia</th>
             <th>Produktas</th>
+            <th style="text-align:right">m³</th>
             <th>Klientas</th>
             <th>Užs. nr.</th>
             <th>Būsena</th>
@@ -449,6 +452,33 @@ function isOverdue(r) {
   return kd ? kd < new Date() : false;
 }
 
+/* ── Volume (m³) calculation ── */
+function calcM3(rec) {
+  const prod  = (rec.produktas  || '').toLowerCase().trim();
+  const komUp = (rec.komentaras || '').toUpperCase();
+
+  // BB count in comment overrides default (1 BB = 1.5 m³)
+  const bbMatch = komUp.match(/(\d+)\s*BB/);
+  if (bbMatch) return parseFloat(bbMatch[1]) * 1.5;
+
+  // Fixed-volume products: 1 truck = 72 m³
+  if (prod === 'premium' || prod.startsWith('extra') || prod === 'medium') return 72;
+
+  // Mix: parse from comment
+  if (prod === 'mix') {
+    const m3m = (rec.komentaras || '').match(/(\d+(?:[.,]\d+)?)\s*m[3³]/i);
+    if (m3m) return parseFloat(m3m[1].replace(',', '.'));
+    return null;
+  }
+
+  return null;
+}
+
+function fmtM3(v) {
+  if (v === null || v === undefined) return '?';
+  return (v % 1 === 0 ? v : v.toFixed(1)) + '';
+}
+
 function badge(s) {
   const cls = s === 'Pristatyta' ? 'b-pristatyta'
     : s === 'Išsiųsta' ? 'b-issista'
@@ -525,6 +555,9 @@ function renderKPIs(data) {
   const thisMonthN  = data.filter(d => d.uzsakymo_data.startsWith(thisM)).length;
   const thisWeekN   = data.filter(d => d.uzsakymo_data >= weekStartStr && d.uzsakymo_data <= today).length;
 
+  let pendingM3 = 0, pendingM3Unknown = 0;
+  data.filter(isPending).forEach(d => { const v = calcM3(d); v !== null ? pendingM3 += v : pendingM3Unknown++; });
+
   const leads = data.filter(d => d.busena === 'Pristatyta' || d.busena === 'Išsiųsta')
     .map(d => daysBetween(parseDate(d.uzsakymo_data), parseDate(d.krovimo_data)))
     .filter(x => x !== null && x >= 0 && x <= 60);
@@ -532,7 +565,7 @@ function renderKPIs(data) {
 
   document.getElementById('kpi-row').innerHTML = `
     <div class="kpi-card c-blue"><div class="kpi-label">Viso užsakymų</div><div class="kpi-value">${data.length}</div><div class="kpi-sub">Visų laikų</div></div>
-    <div class="kpi-card c-amber clickable" onclick="openPendingPage()"><div class="kpi-label">Neįvykdyta</div><div class="kpi-value">${pending}</div><div class="kpi-sub">Spustelėk peržiūrėti</div></div>
+    <div class="kpi-card c-amber clickable" onclick="openPendingPage()"><div class="kpi-label">Neįvykdyta</div><div class="kpi-value">${pending}</div><div class="kpi-sub">${pendingM3 ? pendingM3 + (pendingM3Unknown ? '+?' : '') + ' m³ · ' : ''}Spustelėk</div></div>
     <div class="kpi-card c-red clickable" onclick="openOverduePage()"><div class="kpi-label">Vėluoja ⚠️</div><div class="kpi-value">${overdue}</div><div class="kpi-sub">Spustelėk peržiūrėti</div></div>
     <div class="kpi-card c-green"><div class="kpi-label">Šiandien kroviniai</div><div class="kpi-value">${todayLoad}</div><div class="kpi-sub">${today}</div></div>
     <div class="kpi-card c-purple clickable" onclick="openCalendar()"><div class="kpi-label">Šią savaitę</div><div class="kpi-value">${thisWeekN}</div><div class="kpi-sub">Spustelėk · kalendorius</div></div>
@@ -624,16 +657,33 @@ function renderCustomers(data) {
     }).join('') + '</tbody></table>';
 }
 
-/* ── Product chart ── */
+/* ── Product chart (m³) ── */
 function renderProducts(data) {
-  const c = {};
-  data.forEach(d => { if (d.produktas) c[d.produktas] = (c[d.produktas]||0)+1; });
-  const s = Object.entries(c).sort((a,b)=>b[1]-a[1]);
+  const m3map = {}, cntmap = {};
+  data.forEach(d => {
+    if (!d.produktas) return;
+    const v = calcM3(d);
+    m3map[d.produktas]  = (m3map[d.produktas]  || 0) + (v || 0);
+    cntmap[d.produktas] = (cntmap[d.produktas] || 0) + 1;
+  });
+  const s = Object.entries(m3map).sort((a,b)=>b[1]-a[1]);
   new Chart(document.getElementById('product-chart'), {
     type: 'bar', indexAxis: 'y',
-    data: { labels: s.map(e=>e[0]), datasets: [{ data: s.map(e=>e[1]), backgroundColor: s.map((_,i)=>COLORS[i%COLORS.length]), borderWidth:0, borderRadius:3 }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-      scales: { x:{ticks:{font:{size:10,family:"'Montserrat'"}},grid:{color:'rgba(0,0,0,0.04)'}}, y:{ticks:{font:{size:10,family:"'Montserrat'"}},grid:{display:false}} } }
+    data: {
+      labels: s.map(e => e[0]),
+      datasets: [{ data: s.map(e => e[1]), backgroundColor: s.map((_,i)=>COLORS[i%COLORS.length]), borderWidth:0, borderRadius:3 }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend: { display:false },
+        tooltip: { callbacks: { label: ctx => ctx.parsed.x + ' m³  (' + (cntmap[s[ctx.dataIndex][0]]||0) + ' užs.)' } }
+      },
+      scales: {
+        x: { ticks: { font:{size:10,family:"'Montserrat'"}, callback: v => v + ' m³' }, grid:{color:'rgba(0,0,0,0.04)'} },
+        y: { ticks: { font:{size:10,family:"'Montserrat'"} }, grid:{display:false} }
+      }
+    }
   });
 }
 
@@ -681,11 +731,13 @@ function renderTable(data) {
       const cls = w <= 3 ? 'db-ok' : w <= 10 ? 'db-warn' : 'db-alert';
       waitHtml = `<span class="days-badge ${cls}">${w}d.</span>`;
     }
+    const vol = calcM3(d);
     return `<tr${od?' class="overdue"':''}>
       <td style="color:#8e8e93;font-size:11px">${d.seka}</td>
       <td style="white-space:nowrap;font-size:12px">${d.uzsakymo_data||'—'}</td>
       <td style="white-space:nowrap;font-size:12px">${d.krovimo_data||'—'}</td>
       <td><strong>${d.produktas||'—'}</strong></td>
+      <td style="text-align:right;font-weight:700;font-size:12px;color:#0A2342;white-space:nowrap">${fmtM3(vol)}</td>
       <td style="font-weight:600;white-space:nowrap">${d.uzsakovas||'—'}</td>
       <td style="font-size:11px;color:#8e8e93">${d.uzsakymo_nr||'—'}</td>
       <td>${badge(d.busena)}</td>
@@ -693,7 +745,7 @@ function renderTable(data) {
       <td>${waitHtml}</td>
       <td style="font-size:11px;color:#8e8e93;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.komentaras||''}">${d.komentaras||''}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" style="text-align:center;color:#8e8e93;padding:2rem">Nėra rezultatų</td></tr>';
+  }).join('') || '<tr><td colspan="11" style="text-align:center;color:#8e8e93;padding:2rem">Nėra rezultatų</td></tr>';
 }
 
 function applyFilter() { renderTable(ALL_DATA); }
@@ -895,20 +947,24 @@ function openOverduePage() {
     .map(d => ({ ...d, daysLate: daysBetween(parseDate(d.krovimo_data), now) }))
     .sort((a, b) => b.daysLate - a.daysLate);
 
-  document.getElementById('ov-count').textContent = overdue.length + ' užsakymai';
-  document.getElementById('overdue-tbody').innerHTML = overdue.map(d => `
-    <tr class="overdue">
+  let ovM3 = 0; overdue.forEach(d => { const v = calcM3(d); if (v) ovM3 += v; });
+  document.getElementById('ov-count').textContent = overdue.length + ' užsakymai · ' + ovM3 + ' m³';
+  document.getElementById('overdue-tbody').innerHTML = overdue.map(d => {
+    const vol = calcM3(d);
+    return `<tr class="overdue">
       <td style="color:#8e8e93;font-size:11px">${d.seka}</td>
       <td style="white-space:nowrap;font-size:12px">${d.uzsakymo_data || '—'}</td>
       <td style="white-space:nowrap;font-size:12px;font-weight:700;color:#C0392B">${d.krovimo_data || '—'}</td>
       <td><span class="days-badge db-alert">+${d.daysLate}d.</span></td>
       <td><strong>${d.produktas || '—'}</strong></td>
+      <td style="text-align:right;font-weight:700;font-size:12px;color:#0A2342;white-space:nowrap">${fmtM3(vol)}</td>
       <td style="font-weight:600;white-space:nowrap">${d.uzsakovas || '—'}</td>
       <td style="font-size:11px;color:#8e8e93">${d.uzsakymo_nr || '—'}</td>
       <td>${badge(d.busena)}</td>
       <td style="font-size:11px">${d.transportas || '—'}</td>
       <td style="font-size:11px;color:#8e8e93;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.komentaras || ''}">${d.komentaras || ''}</td>
-    </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;padding:2rem;color:#8e8e93">Nėra vėluojančių užsakymų</td></tr>';
+    </tr>`;
+  }).join('') || '<tr><td colspan="11" style="text-align:center;padding:2rem;color:#8e8e93">Nėra vėluojančių užsakymų</td></tr>';
 
   document.getElementById('overdue-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
@@ -931,7 +987,9 @@ function openPendingPage() {
       return (a.krovimo_data || '9999').localeCompare(b.krovimo_data || '9999');
     });
 
-  document.getElementById('pend-count').textContent = pending.length + ' užsakymų';
+  let pendM3 = 0, pendM3Unk = 0;
+  pending.forEach(d => { const v = calcM3(d); v !== null ? pendM3 += v : pendM3Unk++; });
+  document.getElementById('pend-count').textContent = pending.length + ' užsakymų · ' + pendM3 + (pendM3Unk ? '+? ' : ' ') + 'm³';
   document.getElementById('pending-tbody').innerHTML = pending.map(d => {
     const od = isOverdue(d);
     const w  = d.daysWaiting;
@@ -941,19 +999,21 @@ function openPendingPage() {
     const krovHtml = od
       ? `<span style="font-weight:700;color:#C0392B">${d.krovimo_data}</span> <span class="days-badge db-alert">+${lateDays}d.</span>`
       : (d.krovimo_data || '—');
+    const vol = calcM3(d);
     return `<tr${od ? ' class="overdue"' : ''}>
       <td style="color:#8e8e93;font-size:11px">${d.seka}</td>
       <td style="white-space:nowrap;font-size:12px">${d.uzsakymo_data || '—'}</td>
       <td style="white-space:nowrap;font-size:12px">${krovHtml}</td>
       <td>${wHtml}</td>
       <td><strong>${d.produktas || '—'}</strong></td>
+      <td style="text-align:right;font-weight:700;font-size:12px;color:#0A2342;white-space:nowrap">${fmtM3(vol)}</td>
       <td style="font-weight:600;white-space:nowrap">${d.uzsakovas || '—'}</td>
       <td style="font-size:11px;color:#8e8e93">${d.uzsakymo_nr || '—'}</td>
       <td>${badge(d.busena)}</td>
       <td style="font-size:11px">${d.transportas || '—'}</td>
       <td style="font-size:11px;color:#8e8e93;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${d.komentaras || ''}">${d.komentaras || ''}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:2rem;color:#8e8e93">Nėra neįvykdytų užsakymų</td></tr>';
+  }).join('') || '<tr><td colspan="11" style="text-align:center;padding:2rem;color:#8e8e93">Nėra neįvykdytų užsakymų</td></tr>';
 
   document.getElementById('pending-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
