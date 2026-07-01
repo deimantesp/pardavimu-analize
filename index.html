@@ -1169,6 +1169,7 @@ function renderClarification(data) {
 
   document.getElementById('clarif-list').innerHTML = unclear.map(d => `
     <div id="ci-${d.seka}" style="display:flex;align-items:center;gap:1rem;padding:5px 8px;background:#fffdf0;border-radius:8px;border:1px solid #FEF3DA;font-size:12px">
+      <span style="color:#c7c7cc;font-size:10.5px;white-space:nowrap;flex-shrink:0">eilutė ${d.seka}</span>
       <span style="font-weight:700;min-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${d.uzsakovas}">${d.uzsakovas || '—'}</span>
       <span style="color:#2B6CB0;font-weight:600;white-space:nowrap">${d.produktas || '—'}</span>
       <span style="color:#6e6e73;white-space:nowrap">krovimas: <strong>${d.krovimo_data || '—'}</strong></span>
