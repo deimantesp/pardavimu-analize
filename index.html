@@ -169,6 +169,52 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 .clarif-btn:hover { background: #1A4F80; }
 .clarif-btn:disabled { background: #c7c7cc; cursor: default; }
 
+/* New-order button */
+#new-order-btn {
+  font-family: 'Montserrat', sans-serif; font-size: 13px; font-weight: 700;
+  background: #1A7A4A; color: white; border: none; border-radius: 8px;
+  padding: 7px 15px; cursor: pointer; white-space: nowrap;
+}
+#new-order-btn:hover { background: #14603A; }
+
+/* New-order modal */
+#order-modal {
+  display: none; position: fixed; inset: 0; z-index: 600;
+  background: rgba(10,35,66,0.45); align-items: flex-start; justify-content: center;
+  overflow-y: auto; padding: 3vh 1rem;
+}
+#order-modal.open { display: flex; }
+.om-box { background: white; border-radius: 16px; width: 100%; max-width: 640px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+.om-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 1.4rem; border-bottom: 1px solid #eee;
+}
+.om-title { font-size: 18px; font-weight: 800; color: #0A2342; }
+.om-x { background: #f2f2f7; border: none; border-radius: 8px; width: 32px; height: 32px; font-size: 15px; cursor: pointer; color: #6e6e73; }
+.om-x:hover { background: #e5e5ea; }
+.om-body { padding: 1.2rem 1.4rem; }
+.om-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.om-field { display: flex; flex-direction: column; font-size: 12px; font-weight: 700; color: #3c3c43; gap: 5px; }
+.om-field.om-col2 { grid-column: 1 / -1; }
+.om-field input, .om-field select {
+  font-family: 'Montserrat', sans-serif; font-size: 14px; font-weight: 500;
+  border: 1.5px solid #e5e5ea; border-radius: 8px; padding: 9px 11px; outline: none; color: #1a1a2e;
+}
+.om-field input:focus, .om-field select:focus { border-color: #2B6CB0; }
+.om-msg { margin-top: 0.9rem; font-size: 13px; font-weight: 600; min-height: 18px; }
+.om-msg.ok  { color: #1A7A4A; }
+.om-msg.err { color: #C0392B; }
+.om-foot { display: flex; justify-content: flex-end; gap: 0.6rem; padding: 1rem 1.4rem; border-top: 1px solid #eee; }
+.om-cancel, .om-save {
+  font-family: 'Montserrat', sans-serif; font-size: 14px; font-weight: 700;
+  border: none; border-radius: 9px; padding: 9px 20px; cursor: pointer;
+}
+.om-cancel { background: #f2f2f7; color: #3c3c43; }
+.om-cancel:hover { background: #e5e5ea; }
+.om-save { background: #1A7A4A; color: white; }
+.om-save:hover { background: #14603A; }
+.om-save:disabled { background: #c7c7cc; cursor: default; }
+
 /* Calendar overlay */
 #calendar-overlay { display: none; position: fixed; inset: 0; z-index: 500; background: #f0f2f5; flex-direction: column; overflow-y: auto; }
 #calendar-overlay.open { display: flex; }
@@ -287,8 +333,8 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 
   <div class="card">
     <div class="card-title">
-      Užsakymų lentelė
-      <span id="table-count" class="card-title-sub"></span>
+      <span>Užsakymų lentelė <span id="table-count" class="card-title-sub"></span></span>
+      <button id="new-order-btn" onclick="openNewOrder()" style="display:none">➕ Naujas užsakymas</button>
     </div>
     <div class="filter-bar">
       <input type="text" id="srch" placeholder="Klientas, produktas, užs. nr..." oninput="applyFilter()">
@@ -331,6 +377,57 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 </div>
 
 <div class="footer" id="footer"></div>
+
+<!-- New order modal -->
+<div id="order-modal">
+  <div class="om-box">
+    <div class="om-head">
+      <span class="om-title">➕ Naujas užsakymas</span>
+      <button class="om-x" onclick="closeNewOrder()">✕</button>
+    </div>
+    <div class="om-body">
+      <div class="om-grid">
+        <label class="om-field om-col2">Užsakovas
+          <input type="text" id="of-uzsakovas" list="dl-clients" autocomplete="off" placeholder="Kliento pavadinimas">
+        </label>
+        <label class="om-field">Produktas
+          <input type="text" id="of-produktas" list="dl-products" autocomplete="off" placeholder="Ekstra, Mix…">
+        </label>
+        <label class="om-field">Būsena
+          <select id="of-busena">
+            <option>Gauta</option><option>Priimta</option><option>Vykdoma</option>
+            <option>Išsiųsta</option><option>Pristatyta</option><option>Atšaukta</option>
+          </select>
+        </label>
+        <label class="om-field">Užsakymo data
+          <input type="date" id="of-uzsakymo-data">
+        </label>
+        <label class="om-field">Krovimo data
+          <input type="date" id="of-krovimo-data">
+        </label>
+        <label class="om-field">Užsakymo nr.
+          <input type="text" id="of-nr" autocomplete="off" placeholder="Nr.">
+        </label>
+        <label class="om-field">Transportas
+          <input type="text" id="of-transportas" autocomplete="off" placeholder="Kieno transportas">
+        </label>
+        <label class="om-field om-col2">Komentaras <span style="font-weight:400;color:#8e8e93">(Mix ir BB kiekiams — pvz. „24BB" arba „36m3")</span>
+          <input type="text" id="of-komentaras" autocomplete="off" placeholder="Pastabos, kiekis…">
+        </label>
+        <label class="om-field om-col2">Slaptažodis
+          <input type="password" id="of-secret" autocomplete="off" placeholder="Rašymo slaptažodis">
+        </label>
+      </div>
+      <div id="om-msg" class="om-msg"></div>
+    </div>
+    <div class="om-foot">
+      <button class="om-cancel" onclick="closeNewOrder()">Atšaukti</button>
+      <button class="om-save" id="om-save-btn" onclick="submitNewOrder()">Išsaugoti</button>
+    </div>
+  </div>
+</div>
+<datalist id="dl-clients"></datalist>
+<datalist id="dl-products"></datalist>
 
 <!-- Overdue overlay page -->
 <div id="overdue-overlay">
@@ -430,6 +527,10 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 
 <script>
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkSb05g43mOWiI3PABzhHULN7jeF79C2tmYfxZ0UXCGygXXYJ-GMgmimdZZwTWLzPpuE5mzUGKoUqM/pub?gid=0&single=true&output=csv';
+
+// Užsakymų pildymui: čia įklijuok savo Google Apps Script „Web App" URL (žr. instrukciją).
+// Kol tuščia — mygtukas „Naujas užsakymas" nerodomas.
+const WRITE_ENDPOINT = '';
 
 const MONTH_LT = ['Sau','Vas','Kov','Bal','Geg','Bir','Lie','Rug','Rgs','Spa','Lap','Gru'];
 const DOW_LT   = ['Pir','Ant','Tre','Ket','Pen','Šeš','Sek'];
@@ -1272,6 +1373,94 @@ async function confirmOrder(seka, btn) {
   }
 }
 
+/* ── Naujas užsakymas ── */
+function setupNewOrder(data) {
+  if (!WRITE_ENDPOINT) return; // mygtukas paslėptas kol nėra endpoint
+  document.getElementById('new-order-btn').style.display = '';
+
+  // Datalist'ai: klientai ir produktai
+  const clients  = [...new Set(data.map(d => d.uzsakovas).filter(Boolean))].sort();
+  const products = [...new Set(data.map(d => d.produktas).filter(Boolean))].sort();
+  document.getElementById('dl-clients').innerHTML  = clients.map(c => `<option value="${c.replace(/"/g,'&quot;')}">`).join('');
+  document.getElementById('dl-products').innerHTML = products.map(p => `<option value="${p.replace(/"/g,'&quot;')}">`).join('');
+}
+
+function openNewOrder() {
+  const today = new Date().toISOString().substring(0, 10);
+  document.getElementById('of-uzsakovas').value    = '';
+  document.getElementById('of-produktas').value    = '';
+  document.getElementById('of-busena').value       = 'Gauta';
+  document.getElementById('of-uzsakymo-data').value = today;
+  document.getElementById('of-krovimo-data').value = '';
+  document.getElementById('of-nr').value           = '';
+  document.getElementById('of-transportas').value  = '';
+  document.getElementById('of-komentaras').value   = '';
+  document.getElementById('of-secret').value       = localStorage.getItem('po_secret') || '';
+  const msg = document.getElementById('om-msg'); msg.textContent = ''; msg.className = 'om-msg';
+  document.getElementById('order-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('of-uzsakovas').focus();
+}
+
+function closeNewOrder() {
+  document.getElementById('order-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function submitNewOrder() {
+  const msg = document.getElementById('om-msg');
+  const btn = document.getElementById('om-save-btn');
+  const payload = {
+    uzsakovas:     document.getElementById('of-uzsakovas').value.trim(),
+    produktas:     document.getElementById('of-produktas').value.trim(),
+    busena:        document.getElementById('of-busena').value,
+    uzsakymo_data: document.getElementById('of-uzsakymo-data').value,
+    krovimo_data:  document.getElementById('of-krovimo-data').value,
+    uzsakymo_nr:   document.getElementById('of-nr').value.trim(),
+    transportas:   document.getElementById('of-transportas').value.trim(),
+    komentaras:    document.getElementById('of-komentaras').value.trim(),
+    secret:        document.getElementById('of-secret').value,
+  };
+
+  if (!payload.uzsakovas || !payload.produktas) {
+    msg.textContent = 'Užpildyk bent Užsakovą ir Produktą.'; msg.className = 'om-msg err'; return;
+  }
+  if (!payload.secret) {
+    msg.textContent = 'Įvesk rašymo slaptažodį.'; msg.className = 'om-msg err'; return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Saugoma…';
+  msg.textContent = ''; msg.className = 'om-msg';
+  try {
+    // text/plain -> „simple request", išvengiam CORS preflight su Apps Script
+    const resp = await fetch(WRITE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    const out = await resp.json();
+    if (!out.ok) throw new Error(out.error || 'Nepavyko išsaugoti');
+
+    localStorage.setItem('po_secret', payload.secret); // atsimenam slaptažodį
+    msg.textContent = '✓ Išsaugota (eil. ' + (out.seka || '?') + '). Atnaujinama…';
+    msg.className = 'om-msg ok';
+
+    // Perkraunam duomenis iš Sheets
+    const fresh = canonicalizeNames(await loadData());
+    ALL_DATA = fresh;
+    renderKPIs(fresh); renderMonthly(fresh); renderCustomers(fresh);
+    renderProducts(fresh); renderTransport(fresh); setupFilters(fresh);
+    initCustomerTable(fresh); renderTable(fresh); renderActivity(fresh);
+    renderClarification(fresh); setupNewOrder(fresh);
+
+    setTimeout(closeNewOrder, 900);
+  } catch(e) {
+    msg.textContent = '✕ ' + e.message; msg.className = 'om-msg err';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Išsaugoti';
+  }
+}
+
 /* ── Init ── */
 function init(data) {
   data = canonicalizeNames(data);
@@ -1286,6 +1475,7 @@ function init(data) {
   renderTable(data);
   renderActivity(data);
   renderClarification(data);
+  setupNewOrder(data);
   document.getElementById('footer').textContent =
     'Atnaujinta: ' + new Date().toLocaleString('lt-LT', { dateStyle: 'short', timeStyle: 'short' }) +
     ' · Atsinaujina kas 5 min.';
