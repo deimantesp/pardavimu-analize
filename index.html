@@ -24,6 +24,13 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 }
 .header-title h1 { font-size: 22px; font-weight: 800; }
 .header-title p  { font-size: 12px; opacity: 0.6; margin-top: 2px; }
+.year-chip {
+  cursor: pointer; background: rgba(255,255,255,0.15); border-radius: 8px;
+  padding: 1px 10px; transition: background 0.12s; white-space: nowrap;
+}
+.year-chip:hover { background: rgba(255,255,255,0.30); }
+.year-chip::after { content: ' ⇄'; font-size: 15px; opacity: 0.7; }
+.year-chip.archive { background: #C47A00; }
 .header-meta     { font-size: 12px; opacity: 0.65; text-align: right; line-height: 1.6; }
 
 .page-body { padding: 0 1.5rem 2rem; max-width: 1700px; margin: 0 auto; }
@@ -253,7 +260,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 
 <div class="page-header">
   <div class="header-title">
-    <h1>Pardavimų analizė · <span id="title-year"></span></h1>
+    <h1>Pardavimų analizė · <span id="title-year" class="year-chip" onclick="toggleYear()" title="Perjungti metus"></span></h1>
     <p>Perlito užsakymų stebėjimas · automatiškai atsinaujina kas 5 min.</p>
   </div>
   <div class="header-meta">
@@ -747,16 +754,15 @@ function renderKPIs(data) {
   const avgLead = leads.length ? Math.round(leads.reduce((a, b) => a + b, 0) / leads.length) : null;
 
   document.getElementById('kpi-row').innerHTML = `
-    <div class="kpi-card c-blue"><div class="kpi-label">Viso užsakymų</div><div class="kpi-value">${data.length}</div><div class="kpi-sub">${totalM3.toLocaleString('lt-LT')} m³ iš viso</div></div>
+    <div class="kpi-card c-blue"><div class="kpi-label">Viso užsakymų</div><div class="kpi-value">${data.length}</div><div class="kpi-sub">${totalM3.toLocaleString('lt-LT')} m³ · ${viewYear} m.</div></div>
     <div class="kpi-card c-amber clickable" onclick="openPendingPage()"><div class="kpi-label">Neįvykdyta</div><div class="kpi-value">${pending}</div><div class="kpi-sub">${pendingM3 ? pendingM3 + (pendingM3Unknown ? '+?' : '') + ' m³ · ' : ''}Spustelėk</div></div>
     <div class="kpi-card c-red clickable" onclick="openOverduePage()"><div class="kpi-label">Vėluoja ⚠️</div><div class="kpi-value">${overdue}</div><div class="kpi-sub">Spustelėk peržiūrėti</div></div>
     <div class="kpi-card c-green"><div class="kpi-label">Šiandien kroviniai</div><div class="kpi-value">${todayLoad}</div><div class="kpi-sub">${today}</div></div>
     <div class="kpi-card c-purple clickable" onclick="openCalendar()"><div class="kpi-label">Šią savaitę</div><div class="kpi-value">${thisWeekN}</div><div class="kpi-sub">Spustelėk · kalendorius</div></div>
     <div class="kpi-card c-navy"><div class="kpi-label">Šio mėn.</div><div class="kpi-value">${thisMonthN}</div><div class="kpi-sub">Vid. vykd.: ${avgLead !== null ? avgLead + ' d.' : '—'}</div></div>
   `;
-  document.getElementById('title-year').textContent = now.getFullYear() + ' m.';
   document.getElementById('hdr-date').textContent = now.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-  document.getElementById('hdr-total').textContent = `${data.length} užsakymų iš viso`;
+  document.getElementById('hdr-total').textContent = `${data.length} užsakymų · ${viewYear} m.`;
 }
 
 /* ── Monthly chart ── */
@@ -1366,20 +1372,12 @@ async function confirmOrder(seka, btn) {
   btn.textContent = '↻ Tikrinama…';
   btn.disabled = true;
   try {
-    const fresh = canonicalizeNames(await loadData());
-    ALL_DATA = fresh;
-    renderKPIs(fresh);
-    renderMonthly(fresh);
-    renderCustomers(fresh);
-    renderProducts(fresh);
-    renderTransport(fresh);
-    setupFilters(fresh);
-    initCustomerTable(fresh);
-    renderTable(fresh);
-    renderActivity(fresh);
-    renderClarification(fresh);
+    FULL_DATA = canonicalizeNames(await loadData());
+    AVAILABLE_YEARS = [...new Set(FULL_DATA.map(d => (d.uzsakymo_data || '').substring(0, 4))
+      .filter(y => /^\d{4}$/.test(y)))].sort().reverse();
+    applyYear(AVAILABLE_YEARS.includes(viewYear) ? viewYear : AVAILABLE_YEARS[0]);
 
-    const order = fresh.find(d => d.seka === seka);
+    const order = FULL_DATA.find(d => d.seka === seka);
     if (order && calcM3(order) === null) {
       // Still unclear — restore button with feedback
       const stillBtn = document.getElementById('cb-' + seka);
@@ -1473,13 +1471,11 @@ async function submitNewOrder() {
     msg.textContent = '✓ Išsaugota (eil. ' + (out.seka || '?') + '). Atnaujinama…';
     msg.className = 'om-msg ok';
 
-    // Perkraunam duomenis iš Sheets
-    const fresh = canonicalizeNames(await loadData());
-    ALL_DATA = fresh;
-    renderKPIs(fresh); renderMonthly(fresh); renderCustomers(fresh);
-    renderProducts(fresh); renderTransport(fresh); setupFilters(fresh);
-    initCustomerTable(fresh); renderTable(fresh); renderActivity(fresh);
-    renderClarification(fresh); setupNewOrder(fresh);
+    // Perkraunam duomenis iš Sheets ir liekam tuose pačiuose metuose
+    FULL_DATA = canonicalizeNames(await loadData());
+    AVAILABLE_YEARS = [...new Set(FULL_DATA.map(d => (d.uzsakymo_data || '').substring(0, 4))
+      .filter(y => /^\d{4}$/.test(y)))].sort().reverse();
+    applyYear(AVAILABLE_YEARS.includes(viewYear) ? viewYear : AVAILABLE_YEARS[0]);
 
     setTimeout(closeNewOrder, 900);
   } catch(e) {
@@ -1489,10 +1485,12 @@ async function submitNewOrder() {
   }
 }
 
-/* ── Init ── */
-function init(data) {
-  data = canonicalizeNames(data);
-  ALL_DATA = data;
+/* ── Metų atskyrimas ── */
+let FULL_DATA = [];        // visų metų duomenys
+let AVAILABLE_YEARS = [];  // rūšiuoti mažėjančiai, pvz. ['2026','2025']
+let viewYear = '';         // šiuo metu rodomi metai
+
+function renderAll(data) {
   renderKPIs(data);
   renderMonthly(data);
   renderCustomers(data);
@@ -1504,6 +1502,37 @@ function init(data) {
   renderActivity(data);
   renderClarification(data);
   setupNewOrder(data);
+}
+
+function applyYear(year) {
+  viewYear = year;
+  ALL_DATA = FULL_DATA.filter(d => (d.uzsakymo_data || '').startsWith(year));
+  renderAll(ALL_DATA);
+
+  const chip = document.getElementById('title-year');
+  const isArchive = year !== AVAILABLE_YEARS[0];
+  chip.textContent = year + ' m.' + (isArchive ? ' · archyvas' : '');
+  chip.classList.toggle('archive', isArchive);
+  document.title = 'Pardavimų analizė ' + year;
+  window.scrollTo(0, 0);
+}
+
+function toggleYear() {
+  if (AVAILABLE_YEARS.length < 2) return;
+  const i = AVAILABLE_YEARS.indexOf(viewYear);
+  applyYear(AVAILABLE_YEARS[(i + 1) % AVAILABLE_YEARS.length]);
+}
+
+/* ── Init ── */
+function init(data) {
+  FULL_DATA = canonicalizeNames(data);
+  AVAILABLE_YEARS = [...new Set(FULL_DATA.map(d => (d.uzsakymo_data || '').substring(0, 4))
+    .filter(y => /^\d{4}$/.test(y)))].sort().reverse();
+
+  const nowYear = String(new Date().getFullYear());
+  const startYear = AVAILABLE_YEARS.includes(nowYear) ? nowYear : (AVAILABLE_YEARS[0] || nowYear);
+  applyYear(startYear);
+
   document.getElementById('footer').textContent =
     'Atnaujinta: ' + new Date().toLocaleString('lt-LT', { dateStyle: 'short', timeStyle: 'short' }) +
     ' · Atsinaujina kas 5 min.';
