@@ -398,7 +398,10 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
           <input type="text" id="of-uzsakovas" list="dl-clients" autocomplete="off" placeholder="Kliento pavadinimas">
         </label>
         <label class="om-field">Produktas
-          <input type="text" id="of-produktas" list="dl-products" autocomplete="off" placeholder="Ekstra, Mix…">
+          <input type="text" id="of-produktas" list="dl-products" autocomplete="off" placeholder="Ekstra, Mix…" oninput="updateM3Suggestion()">
+        </label>
+        <label class="om-field">m³ <span style="font-weight:400;color:#8e8e93">(auto)</span>
+          <input type="number" step="0.1" min="0" id="of-m3" autocomplete="off" placeholder="pvz. 72" oninput="this.dataset.touched='1'">
         </label>
         <label class="om-field">Būsena
           <select id="of-busena">
@@ -419,7 +422,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
           <input type="text" id="of-transportas" autocomplete="off" placeholder="Kieno transportas">
         </label>
         <label class="om-field om-col2">Komentaras <span style="font-weight:400;color:#8e8e93">(Mix ir BB kiekiams — pvz. „24BB" arba „36m3")</span>
-          <input type="text" id="of-komentaras" autocomplete="off" placeholder="Pastabos, kiekis…">
+          <input type="text" id="of-komentaras" autocomplete="off" placeholder="Pastabos, kiekis…" oninput="updateM3Suggestion()">
         </label>
         <label class="om-field om-col2">Slaptažodis
           <input type="password" id="of-secret" autocomplete="off" placeholder="Rašymo slaptažodis">
@@ -1421,11 +1424,23 @@ function openNewOrder() {
   document.getElementById('of-nr').value           = '';
   document.getElementById('of-transportas').value  = '';
   document.getElementById('of-komentaras').value   = '';
+  const m3El = document.getElementById('of-m3'); m3El.value = ''; m3El.dataset.touched = '';
   document.getElementById('of-secret').value       = localStorage.getItem('po_secret') || '';
   const msg = document.getElementById('om-msg'); msg.textContent = ''; msg.className = 'om-msg';
   document.getElementById('order-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
   document.getElementById('of-uzsakovas').focus();
+}
+
+// Automatiškai pasiūlo m³ pagal produktą/komentarą (jei vartotojas neįrašė ranka)
+function updateM3Suggestion() {
+  const m3El = document.getElementById('of-m3');
+  if (m3El.dataset.touched === '1') return;
+  const v = calcM3({
+    produktas:  document.getElementById('of-produktas').value,
+    komentaras: document.getElementById('of-komentaras').value,
+  });
+  m3El.value = (v === null || v === undefined) ? '' : v;
 }
 
 function closeNewOrder() {
@@ -1444,6 +1459,7 @@ async function submitNewOrder() {
     krovimo_data:  document.getElementById('of-krovimo-data').value,
     uzsakymo_nr:   document.getElementById('of-nr').value.trim(),
     transportas:   document.getElementById('of-transportas').value.trim(),
+    m3:            document.getElementById('of-m3').value.trim(),
     komentaras:    document.getElementById('of-komentaras').value.trim(),
     secret:        document.getElementById('of-secret').value,
   };
