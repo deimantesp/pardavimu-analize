@@ -315,7 +315,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 
   <div class="card">
     <div class="card-title">
-      <span>Užsakymų lentelė <span id="table-count" class="card-title-sub"></span></span>
+      <span>Užsakymų lentelė <span id="table-count" class="card-title-sub"></span> <span class="card-title-sub" style="font-style:italic">· spausk eilutę redaguoti</span></span>
       <button id="new-order-btn" onclick="openNewOrder()" style="display:none">➕ Naujas užsakymas</button>
     </div>
     <div class="filter-bar">
@@ -414,7 +414,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 <div id="order-modal">
   <div class="om-box">
     <div class="om-head">
-      <span class="om-title">➕ Naujas užsakymas</span>
+      <span class="om-title" id="om-title">➕ Naujas užsakymas</span>
       <button class="om-x" onclick="closeNewOrder()">✕</button>
     </div>
     <div class="om-body">
@@ -665,7 +665,7 @@ async function loadData() {
       uzsakymo_nr:   v[5]  || '',
       busena:        v[6]  || '',
       transportas:   v[7]  || '',
-      // v[8] = m3 stulpelis (skaičiuojamas programiškai, nenaudojamas)
+      m3:            v[8]  || '',   // esama m³ reikšmė lentelėje (redagavimui)
       komentaras:    v[9]  || '',
     };
   }).filter(d => d.uzsakovas && /^\d+$/.test(d.seka));
@@ -932,7 +932,8 @@ function renderTable(data) {
       waitHtml = `<span class="days-badge ${cls}">${w}d.</span>`;
     }
     const vol = calcM3(d);
-    return `<tr${od?' class="overdue"':''}>
+    const clickable = WRITE_ENDPOINT ? ` onclick="openEditOrder('${d.seka}')" style="cursor:pointer"` : '';
+    return `<tr${od?' class="overdue"':''}${clickable}>
       <td style="color:#8e8e93;font-size:11px">${d.seka}</td>
       <td style="white-space:nowrap;font-size:12px">${d.uzsakymo_data||'—'}</td>
       <td style="white-space:nowrap;font-size:12px">${d.krovimo_data||'—'}</td>
@@ -1453,8 +1454,13 @@ function setupNewOrder(data) {
   document.getElementById('dl-products').innerHTML = products.map(p => `<option value="${p.replace(/"/g,'&quot;')}">`).join('');
 }
 
+let EDIT_SEKA = null;  // jei redaguojam — čia užsakymo seka; jei naujas — null
+
 function openNewOrder() {
+  EDIT_SEKA = null;
   const today = new Date().toISOString().substring(0, 10);
+  document.getElementById('om-title').textContent  = '➕ Naujas užsakymas';
+  document.getElementById('om-save-btn').textContent = 'Išsaugoti';
   document.getElementById('of-uzsakovas').value    = '';
   document.getElementById('of-produktas').value    = '';
   document.getElementById('of-busena').value       = 'Gauta';
@@ -1471,6 +1477,29 @@ function openNewOrder() {
   document.getElementById('of-uzsakovas').focus();
 }
 
+function openEditOrder(seka) {
+  const d = ALL_DATA.find(o => o.seka === String(seka));
+  if (!d) return;
+  EDIT_SEKA = String(seka);
+  document.getElementById('om-title').textContent  = '✏️ Redaguoti užsakymą (eil. ' + seka + ')';
+  document.getElementById('om-save-btn').textContent = 'Atnaujinti';
+  document.getElementById('of-uzsakovas').value    = d.uzsakovas || '';
+  document.getElementById('of-produktas').value    = d.produktas || '';
+  document.getElementById('of-busena').value       = ['Gauta','Priimta','Vykdoma','Išsiųsta','Pristatyta','Atšaukta'].includes(d.busena) ? d.busena : 'Gauta';
+  document.getElementById('of-uzsakymo-data').value = /^\d{4}-\d{2}-\d{2}$/.test(d.uzsakymo_data) ? d.uzsakymo_data : '';
+  document.getElementById('of-krovimo-data').value = /^\d{4}-\d{2}-\d{2}$/.test(d.krovimo_data) ? d.krovimo_data : '';
+  document.getElementById('of-nr').value           = d.uzsakymo_nr || '';
+  document.getElementById('of-transportas').value  = d.transportas || '';
+  document.getElementById('of-komentaras').value   = d.komentaras || '';
+  const m3El = document.getElementById('of-m3');
+  const m3val = d.m3 || (calcM3(d) ?? '');
+  m3El.value = m3val; m3El.dataset.touched = '1';  // rodom esamą; auto-siūlymas neperrašo
+  document.getElementById('of-secret').value       = localStorage.getItem('po_secret') || '';
+  const msg = document.getElementById('om-msg'); msg.textContent = ''; msg.className = 'om-msg';
+  document.getElementById('order-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
 // Automatiškai pasiūlo m³ pagal produktą/komentarą (jei vartotojas neįrašė ranka)
 function updateM3Suggestion() {
   const m3El = document.getElementById('of-m3');
@@ -1483,6 +1512,7 @@ function updateM3Suggestion() {
 }
 
 function closeNewOrder() {
+  EDIT_SEKA = null;
   document.getElementById('order-modal').classList.remove('open');
   document.body.style.overflow = '';
 }
@@ -1502,6 +1532,8 @@ async function submitNewOrder() {
     komentaras:    document.getElementById('of-komentaras').value.trim(),
     secret:        document.getElementById('of-secret').value,
   };
+  const isEdit = EDIT_SEKA !== null;
+  if (isEdit) { payload.mode = 'update'; payload.seka = EDIT_SEKA; }
 
   if (!payload.uzsakovas || !payload.produktas) {
     msg.textContent = 'Užpildyk bent Užsakovą ir Produktą.'; msg.className = 'om-msg err'; return;
@@ -1523,7 +1555,7 @@ async function submitNewOrder() {
     if (!out.ok) throw new Error(out.error || 'Nepavyko išsaugoti');
 
     localStorage.setItem('po_secret', payload.secret); // atsimenam slaptažodį
-    msg.textContent = '✓ Išsaugota (eil. ' + (out.seka || '?') + '). Atnaujinama…';
+    msg.textContent = (isEdit ? '✓ Atnaujinta (eil. ' : '✓ Išsaugota (eil. ') + (out.seka || '?') + '). Atnaujinama…';
     msg.className = 'om-msg ok';
 
     // Perkraunam duomenis iš Sheets ir liekam tuose pačiuose metuose
@@ -1536,7 +1568,7 @@ async function submitNewOrder() {
   } catch(e) {
     msg.textContent = '✕ ' + e.message; msg.className = 'om-msg err';
   } finally {
-    btn.disabled = false; btn.textContent = 'Išsaugoti';
+    btn.disabled = false; btn.textContent = isEdit ? 'Atnaujinti' : 'Išsaugoti';
   }
 }
 
