@@ -280,6 +280,36 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 .mtoggle.active { background: #2B6CB0; color: white; }
 .charts-3 { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 1.1rem; }
 @media (max-width: 1100px) { .charts-3 { grid-template-columns: 1fr; } }
+
+/* Savaitės krovinių planas */
+#week-overlay { display: none; position: fixed; inset: 0; z-index: 520; background: #f0f2f5; flex-direction: column; overflow-y: auto; }
+#week-overlay.open { display: flex; }
+.week-body { padding: 1.3rem 1.5rem 2rem; max-width: 1100px; width: 100%; margin: 0 auto; }
+#wk-print-title { display: none; font-size: 20px; font-weight: 800; color: #0A2342; margin-bottom: 1rem; }
+.wk-day { background: white; border-radius: 12px; margin-bottom: 0.9rem; overflow: hidden; border: 1px solid #e5e5ea; }
+.wk-day.is-today { border-color: #1A7A4A; box-shadow: 0 0 0 1px #1A7A4A; }
+.wk-day.is-weekend .wk-day-head { background: #6e6e73; }
+.wk-day-head { display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 1rem; background: #0A2342; color: white; }
+.wk-day-head .wd-name { font-weight: 800; font-size: 15px; }
+.wk-day-head .wd-sum { font-size: 13px; opacity: 0.85; }
+.wk-day-body { padding: 0.4rem 1rem 0.7rem; }
+.wk-load { display: flex; align-items: center; gap: 0.7rem; padding: 5px 0; border-bottom: 1px solid #f0f2f5; font-size: 13.5px; }
+.wk-load:last-child { border-bottom: none; }
+.wk-empty { color: #c7c7cc; font-size: 12.5px; padding: 6px 0; }
+.wk-notes { margin-top: 0.55rem; border: 1px dashed #c7c7cc; border-radius: 8px; min-height: 48px; padding: 5px 10px; font-size: 11px; color: #b0b0b8; }
+
+@media print {
+  body * { visibility: hidden; }
+  #week-overlay, #week-overlay * { visibility: visible; }
+  #week-overlay { position: absolute; inset: 0; overflow: visible; background: white; display: block; }
+  .wk-noprint { display: none !important; }
+  #wk-print-title { display: block; }
+  .week-body { max-width: 100%; padding: 0; }
+  .wk-day { break-inside: avoid; border: 1px solid #999; box-shadow: none; margin-bottom: 0.5rem; }
+  .wk-day-head { background: #0A2342 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .wk-day.is-weekend .wk-day-head { background: #6e6e73 !important; }
+  .wk-notes { min-height: 40px; }
+}
 </style>
 </head>
 <body>
@@ -630,6 +660,24 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
   </div>
 </div>
 
+<!-- Savaitės krovinių planas (spausdinamas) -->
+<div id="week-overlay">
+  <div class="ov-header wk-noprint" style="background:#1A7A4A;gap:0.6rem">
+    <button class="ov-back" onclick="closeWeek()">← Atgal</button>
+    <span class="ov-title">Savaitės kroviniai</span>
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto">
+      <button class="cal-nav-btn" onclick="navigateWeek(-1)">‹</button>
+      <span id="wk-range" style="font-weight:700;min-width:230px;text-align:center;font-size:14px"></span>
+      <button class="cal-nav-btn" onclick="navigateWeek(1)">›</button>
+      <button class="ov-back" onclick="printWeek()" style="margin-left:0.6rem">🖨 Spausdinti</button>
+    </div>
+  </div>
+  <div class="week-body">
+    <div id="wk-print-title"></div>
+    <div id="week-grid"></div>
+  </div>
+</div>
+
 <script>
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkSb05g43mOWiI3PABzhHULN7jeF79C2tmYfxZ0UXCGygXXYJ-GMgmimdZZwTWLzPpuE5mzUGKoUqM/pub?gid=0&single=true&output=csv';
 
@@ -881,7 +929,7 @@ function renderKPIs(data) {
     <div class="kpi-card c-blue"><div class="kpi-label">Viso užsakymų</div><div class="kpi-value">${data.length}</div><div class="kpi-sub">${totalM3.toLocaleString('lt-LT')} m³ · ${viewYear} m.</div></div>
     <div class="kpi-card c-amber clickable" onclick="openPendingPage()"><div class="kpi-label">Neįvykdyta</div><div class="kpi-value">${pending}</div><div class="kpi-sub">${pendingM3 ? pendingM3 + (pendingM3Unknown ? '+?' : '') + ' m³ · ' : ''}Spustelėk</div></div>
     <div class="kpi-card c-red clickable" onclick="openOverduePage()"><div class="kpi-label">Vėluoja ⚠️</div><div class="kpi-value">${overdue}</div><div class="kpi-sub">Spustelėk peržiūrėti</div></div>
-    <div class="kpi-card c-green"><div class="kpi-label">Šiandien kroviniai</div><div class="kpi-value">${todayLoad}</div><div class="kpi-sub">${today}</div></div>
+    <div class="kpi-card c-green clickable" onclick="openWeek()"><div class="kpi-label">Šiandien kroviniai</div><div class="kpi-value">${todayLoad}</div><div class="kpi-sub">Spustelėk · savaitės planas</div></div>
     <div class="kpi-card c-purple clickable" onclick="openCalendar()"><div class="kpi-label">Šią savaitę</div><div class="kpi-value">${thisWeekN}</div><div class="kpi-sub">Spustelėk · kalendorius</div></div>
     <div class="kpi-card c-navy"><div class="kpi-label">Šio mėn.</div><div class="kpi-value">${thisMonthN}</div><div class="kpi-sub">Vid. vykd.: ${avgLead !== null ? avgLead + ' d.' : '—'}</div></div>
   `;
@@ -1381,7 +1429,9 @@ function getLtHoliday(date) {
   return null;
 }
 
-function toDateStr(d) { return d.toISOString().substring(0, 10); }
+function toDateStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 
 let calYear, calMonth;
 
@@ -1489,6 +1539,66 @@ function openCalendar() {
 function closeCalendar() {
   document.getElementById('calendar-overlay').classList.remove('open');
   document.body.style.overflow = '';
+}
+
+/* ── Savaitės krovinių planas ── */
+let weekOffset = 0;  // 0 = einamoji savaitė
+const DOW_FULL = ['Pirmadienis','Antradienis','Trečiadienis','Ketvirtadienis','Penktadienis','Šeštadienis','Sekmadienis'];
+
+function openWeek() {
+  weekOffset = 0;
+  renderWeek();
+  document.getElementById('week-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  window.scrollTo(0, 0);
+}
+function closeWeek() {
+  document.getElementById('week-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function navigateWeek(dir) { weekOffset += dir; renderWeek(); }
+function printWeek() { window.print(); }
+
+function renderWeek() {
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(monday.getDate() - ((now.getDay() + 6) % 7) + weekOffset * 7);
+  const todayStr = toDateStr(now);
+  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(d.getDate() + i); return d; });
+  const fmtLong = d => d.toLocaleDateString('lt-LT', { month: 'long', day: 'numeric' });
+  const rangeStr = fmtLong(days[0]) + ' – ' + fmtLong(days[6]) + ' ' + days[6].getFullYear();
+  document.getElementById('wk-range').textContent = rangeStr;
+  document.getElementById('wk-print-title').textContent = 'Savaitės krovinių planas: ' + rangeStr;
+
+  document.getElementById('week-grid').innerHTML = days.map((d, i) => {
+    const ds = toDateStr(d);
+    const isToday = ds === todayStr;
+    const isWknd = i >= 5;
+    const loads = ALL_DATA.filter(o => o.krovimo_data === ds)
+      .sort((a, b) => (a.uzsakovas || '').localeCompare(b.uzsakovas || ''));
+    let sumM3 = 0; loads.forEach(o => { const v = calcM3(o); if (v) sumM3 += v; });
+
+    const loadHtml = loads.length ? loads.map(o => `
+      <div class="wk-load">
+        <span style="font-weight:700;min-width:160px">${o.uzsakovas || '—'}</span>
+        <span style="color:#2B6CB0;font-weight:600;min-width:80px">${o.produktas || '—'}</span>
+        <span style="font-weight:700;min-width:60px">${fmtM3(calcM3(o))} m³</span>
+        <span style="min-width:90px">${badge(o.busena)}</span>
+        <span style="color:#6e6e73;font-size:12px">${o.transportas || ''}</span>
+        <span style="color:#8e8e93;font-size:11.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.komentaras || ''}</span>
+      </div>`).join('') : '<div class="wk-empty">— nėra krovinių —</div>';
+
+    return `<div class="wk-day${isToday ? ' is-today' : ''}${isWknd ? ' is-weekend' : ''}">
+      <div class="wk-day-head">
+        <span class="wd-name">${DOW_FULL[i]} · ${ds.slice(5)}${isToday ? ' · ŠIANDIEN' : ''}</span>
+        <span class="wd-sum">${loads.length} krov.${sumM3 ? ' · ' + sumM3.toLocaleString('lt-LT') + ' m³' : ''}</span>
+      </div>
+      <div class="wk-day-body">
+        ${loadHtml}
+        <div class="wk-notes">Pastabos:</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ── Klientai overlay ── */
