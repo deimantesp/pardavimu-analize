@@ -1229,7 +1229,8 @@ function openOverduePage() {
   document.getElementById('ov-count').textContent = overdue.length + ' užsakymai · ' + ovM3 + ' m³';
   document.getElementById('overdue-tbody').innerHTML = overdue.map(d => {
     const vol = calcM3(d);
-    return `<tr class="overdue">
+    const clickable = WRITE_ENDPOINT ? ` onclick="openEditOrder('${d.seka}')" style="cursor:pointer"` : '';
+    return `<tr class="overdue"${clickable}>
       <td style="color:#8e8e93;font-size:11px">${d.seka}</td>
       <td style="white-space:nowrap;font-size:12px">${d.uzsakymo_data || '—'}</td>
       <td style="white-space:nowrap;font-size:12px;font-weight:700;color:#C0392B">${d.krovimo_data || '—'}</td>
@@ -1289,7 +1290,8 @@ function openPendingPage() {
       ? `<span style="font-weight:700;color:#C0392B">${d.krovimo_data}</span> <span class="days-badge db-alert">+${lateDays}d.</span>`
       : (d.krovimo_data || '—');
     const vol = calcM3(d);
-    return `<tr${od ? ' class="overdue"' : ''}>
+    const clickable = WRITE_ENDPOINT ? ` onclick="openEditOrder('${d.seka}')" style="cursor:pointer"` : '';
+    return `<tr${od ? ' class="overdue"' : ''}${clickable}>
       <td style="color:#8e8e93;font-size:11px">${d.seka}</td>
       <td style="white-space:nowrap;font-size:12px">${d.uzsakymo_data || '—'}</td>
       <td style="white-space:nowrap;font-size:12px">${krovHtml}</td>
@@ -1704,10 +1706,10 @@ async function submitNewOrder() {
     AVAILABLE_YEARS = [...new Set(FULL_DATA.map(d => (d.uzsakymo_data || '').substring(0, 4))
       .filter(y => /^\d{4}$/.test(y)))].sort().reverse();
     applyYear(AVAILABLE_YEARS.includes(viewYear) ? viewYear : AVAILABLE_YEARS[0]);
-    // Jei atidaryta kliento kortelė — atnaujinam ją
-    if (CURRENT_CUSTOMER && document.getElementById('customer-overlay').classList.contains('open')) {
-      openCustomer(CURRENT_CUSTOMER);
-    }
+    // Atnaujinam atidarytus langus
+    if (CURRENT_CUSTOMER && document.getElementById('customer-overlay').classList.contains('open')) openCustomer(CURRENT_CUSTOMER);
+    if (document.getElementById('overdue-overlay').classList.contains('open')) openOverduePage();
+    if (document.getElementById('pending-overlay').classList.contains('open')) openPendingPage();
 
     setTimeout(closeNewOrder, 900);
   } catch(e) {
