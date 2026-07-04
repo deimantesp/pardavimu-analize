@@ -355,6 +355,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
         <option value="Pristatyta">Pristatyta</option>
         <option value="Išsiųsta">Išsiųsta</option>
         <option value="Atšaukta">Atšaukta</option>
+        <option value="__none__">— (be būsenos)</option>
       </select>
       <select id="sf-product" onchange="applyFilter()">
         <option value="">Visi produktai</option>
@@ -497,6 +498,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
         </label>
         <label class="om-field">Būsena
           <select id="of-busena">
+            <option value="">— (nenurodyta)</option>
             <option>Gauta</option><option>Priimta</option><option>Vykdoma</option>
             <option>Išsiųsta</option><option>Pristatyta</option><option>Atšaukta</option>
           </select>
@@ -1016,6 +1018,7 @@ function renderTable(data) {
 
   let f = data;
   if (statusF === 'pending') f = f.filter(isPending);
+  else if (statusF === '__none__') f = f.filter(d => !(d.busena || '').trim());
   else if (statusF) f = f.filter(d => d.busena === statusF);
   if (productF) f = f.filter(d => d.produktas === productF);
   if (clientF)  f = f.filter(d => (d.uzsakovas || '').toLowerCase().includes(clientF));
@@ -1628,7 +1631,7 @@ function openEditOrder(seka) {
   document.getElementById('om-save-btn').textContent = 'Atnaujinti';
   document.getElementById('of-uzsakovas').value    = d.uzsakovas || '';
   document.getElementById('of-produktas').value    = d.produktas || '';
-  document.getElementById('of-busena').value       = ['Gauta','Priimta','Vykdoma','Išsiųsta','Pristatyta','Atšaukta'].includes(d.busena) ? d.busena : 'Gauta';
+  document.getElementById('of-busena').value       = ['','Gauta','Priimta','Vykdoma','Išsiųsta','Pristatyta','Atšaukta'].includes(d.busena) ? d.busena : '';
   document.getElementById('of-uzsakymo-data').value = /^\d{4}-\d{2}-\d{2}$/.test(d.uzsakymo_data) ? d.uzsakymo_data : '';
   document.getElementById('of-krovimo-data').value = /^\d{4}-\d{2}-\d{2}$/.test(d.krovimo_data) ? d.krovimo_data : '';
   document.getElementById('of-nr').value           = d.uzsakymo_nr || '';
