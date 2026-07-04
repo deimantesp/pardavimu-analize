@@ -1614,10 +1614,11 @@ function setupNewOrder(data) {
   document.getElementById('dl-products').innerHTML = products.map(p => `<option value="${p.replace(/"/g,'&quot;')}">`).join('');
 }
 
-let EDIT_SEKA = null;  // jei redaguojam — čia užsakymo seka; jei naujas — null
+let EDIT_SEKA = null;     // jei redaguojam — čia užsakymo seka; jei naujas — null
+let EDIT_LOCATOR = null;  // { seka, uzsakymo_data } — tiksliai identifikuoti eilutę (seka nėra unikali!)
 
 function openNewOrder() {
-  EDIT_SEKA = null;
+  EDIT_SEKA = null; EDIT_LOCATOR = null;
   const today = new Date().toISOString().substring(0, 10);
   document.getElementById('om-title').textContent  = '➕ Naujas užsakymas';
   document.getElementById('om-save-btn').textContent = 'Išsaugoti';
@@ -1641,6 +1642,7 @@ function openEditOrder(seka) {
   const d = ALL_DATA.find(o => o.seka === String(seka));
   if (!d) return;
   EDIT_SEKA = String(seka);
+  EDIT_LOCATOR = { seka: d.seka, uzsakymo_data: d.uzsakymo_data };
   document.getElementById('om-title').textContent  = '✏️ Redaguoti užsakymą (eil. ' + seka + ')';
   document.getElementById('om-save-btn').textContent = 'Atnaujinti';
   document.getElementById('of-uzsakovas').value    = d.uzsakovas || '';
@@ -1673,7 +1675,7 @@ function updateM3Suggestion() {
 }
 
 function closeNewOrder() {
-  EDIT_SEKA = null;
+  EDIT_SEKA = null; EDIT_LOCATOR = null;
   document.getElementById('order-modal').classList.remove('open');
   document.body.style.overflow = '';
 }
@@ -1694,7 +1696,7 @@ async function submitNewOrder() {
     secret:        document.getElementById('of-secret').value,
   };
   const isEdit = EDIT_SEKA !== null;
-  if (isEdit) { payload.mode = 'update'; payload.seka = EDIT_SEKA; }
+  if (isEdit) { payload.mode = 'update'; payload.seka = EDIT_SEKA; payload.locator = EDIT_LOCATOR; }
 
   if (!payload.uzsakovas || !payload.produktas) {
     msg.textContent = 'Užpildyk bent Užsakovą ir Produktą.'; msg.className = 'om-msg err'; return;
