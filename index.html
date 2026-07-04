@@ -347,7 +347,8 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
     <div class="filter-bar">
       <input type="text" id="srch" placeholder="Klientas, produktas, užs. nr..." oninput="applyFilter()">
       <select id="sf-status" onchange="applyFilter()">
-        <option value="pending">Neįvykdyti</option>
+        <option value="pending">Neįvykdyti (Vykdoma)</option>
+        <option value="veluoja">Vėluoja (be būs./Gauta/Priimta)</option>
         <option value="">Visi</option>
         <option value="Gauta">Gauta</option>
         <option value="Priimta">Priimta</option>
@@ -537,7 +538,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 <div id="overdue-overlay">
   <div class="ov-header">
     <button class="ov-back" onclick="closeOverduePage()">← Atgal</button>
-    <span class="ov-title">Vėluojantys užsakymai</span>
+    <span class="ov-title">Vėluojantys užsakymai <span style="font-size:12px;font-weight:500;opacity:0.75">· be būsenos / Gauta / Priimta</span></span>
     <span class="ov-count" id="ov-count"></span>
   </div>
   <div class="ov-body">
@@ -548,7 +549,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
             <th>#</th>
             <th>Užsakyta</th>
             <th>Krovimas</th>
-            <th>Vėluoja</th>
+            <th>Laukia</th>
             <th>Produktas</th>
             <th style="text-align:right">m³</th>
             <th>Klientas</th>
@@ -568,7 +569,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 <div id="pending-overlay">
   <div class="ov-header" style="background:#7A5200">
     <button class="ov-back" onclick="closePendingPage()">← Atgal</button>
-    <span class="ov-title">Neįvykdyti užsakymai</span>
+    <span class="ov-title">Neįvykdyti užsakymai <span style="font-size:12px;font-weight:500;opacity:0.75">· Vykdoma</span></span>
     <span class="ov-count" id="pend-count"></span>
     <select id="pend-sort" onchange="openPendingPage()" style="margin-left:auto;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:700;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:white;border-radius:8px;padding:5px 10px;cursor:pointer;outline:none">
       <option value="date">↕ Krovimo data</option>
@@ -671,10 +672,17 @@ function daysBetween(a, b) {
 }
 
 const DONE_STATUSES = new Set(['pristatyta', 'išsiųsta', 'atšaukta', 'atšauktas']);
-function isPending(r) { return !DONE_STATUSES.has((r.busena || '').toLowerCase().trim()); }
+function statusKey(r) { return (r.busena || '').toLowerCase().trim(); }
 
-function isOverdue(r) {
-  if (!isPending(r)) return false;
+// Aktyvus = neįvykdytas ir neatšauktas (Vėluoja ∪ Neįvykdyta)
+function isActive(r) { return !DONE_STATUSES.has(statusKey(r)); }
+// Neįvykdyta = Vykdoma (suplanuoti, vykdomi)
+function isNeivykdyta(r) { return statusKey(r) === 'vykdoma'; }
+// Vėluoja = be būsenos, Gauta arba Priimta (dar nesuplanuoti)
+function isVeluoja(r) { const s = statusKey(r); return s === '' || s === 'gauta' || s === 'priimta'; }
+// Vėluoja pakrovimas — aktyvus užsakymas, kurio krovimo data jau praėjo (raudonam paryškinimui)
+function isPastLoad(r) {
+  if (!isActive(r)) return false;
   const kd = parseDate(r.krovimo_data);
   return kd ? kd < new Date() : false;
 }
@@ -834,14 +842,14 @@ function renderKPIs(data) {
   weekStart.setDate(weekStart.getDate() - ((now.getDay() + 6) % 7));
   const weekStartStr = weekStart.toISOString().substring(0, 10);
 
-  const pending     = data.filter(isPending).length;
-  const overdue     = data.filter(isOverdue).length;
+  const pending     = data.filter(isNeivykdyta).length;
+  const overdue     = data.filter(isVeluoja).length;
   const todayLoad   = data.filter(d => d.krovimo_data === today).length;
   const thisMonthN  = data.filter(d => d.uzsakymo_data.startsWith(thisM)).length;
   const thisWeekN   = data.filter(d => d.uzsakymo_data >= weekStartStr && d.uzsakymo_data <= today).length;
 
   let pendingM3 = 0, pendingM3Unknown = 0;
-  data.filter(isPending).forEach(d => { const v = calcM3(d); v !== null ? pendingM3 += v : pendingM3Unknown++; });
+  data.filter(isNeivykdyta).forEach(d => { const v = calcM3(d); v !== null ? pendingM3 += v : pendingM3Unknown++; });
   let totalM3 = 0;
   data.forEach(d => { const v = calcM3(d); if (v) totalM3 += v; });
 
@@ -1017,7 +1025,8 @@ function renderTable(data) {
   const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
 
   let f = data;
-  if (statusF === 'pending') f = f.filter(isPending);
+  if (statusF === 'pending') f = f.filter(isNeivykdyta);
+  else if (statusF === 'veluoja') f = f.filter(isVeluoja);
   else if (statusF === '__none__') f = f.filter(d => !(d.busena || '').trim());
   else if (statusF) f = f.filter(d => d.busena === statusF);
   if (productF) f = f.filter(d => d.produktas === productF);
@@ -1034,9 +1043,9 @@ function renderTable(data) {
 
   document.getElementById('orders-tbody').innerHTML = f.map(d => {
     const uzDt = parseDate(d.uzsakymo_data);
-    const od = isOverdue(d);
+    const od = isPastLoad(d);
     let waitHtml = '';
-    if (uzDt && isPending(d)) {
+    if (uzDt && isActive(d)) {
       const w = daysBetween(uzDt, now);
       const cls = w <= 3 ? 'db-ok' : w <= 10 ? 'db-warn' : 'db-alert';
       waitHtml = `<span class="days-badge ${cls}">${w}d.</span>`;
@@ -1086,7 +1095,7 @@ function buildCustomerRows(data) {
     const lastDt = last ? parseDate(last) : null;
     const ago   = lastDt ? daysBetween(lastDt, now) : null;
     const products = [...new Set(c.orders.map(o => o.produktas).filter(Boolean))].sort().join(', ');
-    const pendingOrders = c.orders.filter(isPending).sort((a, b) => (a.krovimo_data || '').localeCompare(b.krovimo_data || ''));
+    const pendingOrders = c.orders.filter(isNeivykdyta).sort((a, b) => (a.krovimo_data || '').localeCompare(b.krovimo_data || ''));
     const pending = pendingOrders.length;
     let custM3 = 0; c.orders.forEach(o => { const v = calcM3(o); if (v) custM3 += v; });
     return { name: c.name, first, last, ago, count: c.orders.length, products, pending, pendingOrders, custM3 };
@@ -1224,20 +1233,23 @@ function renderActivity(data) {
 /* ── Overdue page ── */
 function openOverduePage() {
   const now = new Date();
-  const overdue = ALL_DATA.filter(isOverdue)
-    .map(d => ({ ...d, daysLate: daysBetween(parseDate(d.krovimo_data), now) }))
-    .sort((a, b) => b.daysLate - a.daysLate);
+  const overdue = ALL_DATA.filter(isVeluoja)
+    .map(d => ({ ...d, daysWaiting: daysBetween(parseDate(d.uzsakymo_data), now) }))
+    .sort((a, b) => (b.daysWaiting || 0) - (a.daysWaiting || 0));
 
   let ovM3 = 0; overdue.forEach(d => { const v = calcM3(d); if (v) ovM3 += v; });
   document.getElementById('ov-count').textContent = overdue.length + ' užsakymai · ' + ovM3 + ' m³';
   document.getElementById('overdue-tbody').innerHTML = overdue.map(d => {
     const vol = calcM3(d);
+    const pastLoad = isPastLoad(d);
+    const w = d.daysWaiting;
+    const wCls = w === null ? '' : w <= 5 ? 'db-ok' : w <= 14 ? 'db-warn' : 'db-alert';
     const clickable = WRITE_ENDPOINT ? ` onclick="openEditOrder('${d.seka}')" style="cursor:pointer"` : '';
-    return `<tr class="overdue"${clickable}>
+    return `<tr${pastLoad ? ' class="overdue"' : ''}${clickable}>
       <td style="color:#8e8e93;font-size:11px">${d.seka}</td>
       <td style="white-space:nowrap;font-size:12px">${d.uzsakymo_data || '—'}</td>
-      <td style="white-space:nowrap;font-size:12px;font-weight:700;color:#C0392B">${d.krovimo_data || '—'}</td>
-      <td><span class="days-badge db-alert">+${d.daysLate}d.</span></td>
+      <td style="white-space:nowrap;font-size:12px${pastLoad ? ';font-weight:700;color:#C0392B' : ''}">${d.krovimo_data || '—'}</td>
+      <td>${w !== null ? `<span class="days-badge ${wCls}">${w}d.</span>` : '—'}</td>
       <td><strong>${d.produktas || '—'}</strong></td>
       <td style="text-align:right;font-weight:700;font-size:12px;color:#0A2342;white-space:nowrap">${fmtM3(vol)}</td>
       <td style="font-weight:600;white-space:nowrap">${d.uzsakovas || '—'}</td>
@@ -1262,10 +1274,10 @@ function openPendingPage() {
   const now = new Date();
   const sortMode = document.getElementById('pend-sort')?.value || 'date';
   const STATUS_ORDER = { 'vykdoma': 0, 'priimta': 1, 'gauta': 2 };
-  const pending = ALL_DATA.filter(isPending)
+  const pending = ALL_DATA.filter(isNeivykdyta)
     .map(d => ({ ...d, daysWaiting: daysBetween(parseDate(d.uzsakymo_data), now) }))
     .sort((a, b) => {
-      const aOd = isOverdue(a), bOd = isOverdue(b);
+      const aOd = isPastLoad(a), bOd = isPastLoad(b);
       if (sortMode === 'status') {
         const as = STATUS_ORDER[(a.busena||'').toLowerCase()] ?? 9;
         const bs = STATUS_ORDER[(b.busena||'').toLowerCase()] ?? 9;
@@ -1284,7 +1296,7 @@ function openPendingPage() {
   pending.forEach(d => { const v = calcM3(d); v !== null ? pendM3 += v : pendM3Unk++; });
   document.getElementById('pend-count').textContent = pending.length + ' užsakymų · ' + pendM3 + (pendM3Unk ? '+? ' : ' ') + 'm³';
   document.getElementById('pending-tbody').innerHTML = pending.map(d => {
-    const od = isOverdue(d);
+    const od = isPastLoad(d);
     const w  = d.daysWaiting;
     const wCls = w === null ? '' : w <= 5 ? 'db-ok' : w <= 14 ? 'db-warn' : 'db-alert';
     const wHtml = w !== null ? `<span class="days-badge ${wCls}">${w}d.</span>` : '—';
@@ -1401,7 +1413,7 @@ function renderCalendar(year, month) {
       const oc = o.busena === 'Atšaukta'
         ? 'cal-o-cancelled'
         : (o.busena === 'Pristatyta' || o.busena === 'Išsiųsta') ? 'cal-o-done'
-        : isOverdue(o) ? 'cal-o-overdue'
+        : isPastLoad(o) ? 'cal-o-overdue'
         : 'cal-o-pending';
       return `<span class="cal-order ${oc}" title="${o.uzsakovas} · ${o.produktas} · ${o.busena}">${o.uzsakovas}</span>`;
     }).join('');
@@ -1489,7 +1501,7 @@ function openCustomer(name) {
   const first = dates[0] || null, last = dates[dates.length - 1] || null;
   const lastDt = last ? parseDate(last) : null;
   const ago = lastDt ? daysBetween(lastDt, now) : null;
-  const pending = orders.filter(isPending).length;
+  const pending = orders.filter(isNeivykdyta).length;
   const leads = orders.filter(d => d.busena === 'Pristatyta' || d.busena === 'Išsiųsta')
     .map(d => daysBetween(parseDate(d.uzsakymo_data), parseDate(d.krovimo_data)))
     .filter(x => x !== null && x >= 0 && x <= 60);
@@ -1507,7 +1519,7 @@ function openCustomer(name) {
   `;
   document.getElementById('customer-orders-count').textContent = orders.length + ' užsakymų · ' + viewYear + ' m.';
   document.getElementById('customer-orders-tbody').innerHTML = orders.map(d => {
-    const od = isOverdue(d);
+    const od = isPastLoad(d);
     const clickable = WRITE_ENDPOINT ? ` onclick="openEditOrder('${d.seka}')" style="cursor:pointer"` : '';
     return `<tr${od ? ' class="overdue"' : ''}${clickable}>
       <td style="color:#8e8e93;font-size:11px">${d.seka}</td>
@@ -1538,7 +1550,7 @@ function closeCustomer() {
 
 /* ── Clarification panel ── */
 function renderClarification(data) {
-  const unclear = data.filter(d => isPending(d) && calcM3(d) === null);
+  const unclear = data.filter(d => isActive(d) && calcM3(d) === null);
   const card = document.getElementById('clarif-card');
   document.getElementById('clarif-count').textContent = unclear.length ? unclear.length + ' užs.' : '';
 
