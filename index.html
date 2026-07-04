@@ -70,12 +70,12 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 
 /* Status badge */
 .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-.b-pristatyta { background: #e6f4ec; color: #1A7A4A; }
-.b-issista    { background: #ddf0e8; color: #0F6B3A; }
-.b-vykdoma    { background: #FEF3DA; color: #C47A00; }
-.b-priimta    { background: #E3EEF8; color: #1A4F80; }
-.b-gauta      { background: #E8F4F3; color: #0F7870; }
-.b-atsaukta   { background: #f2f2f7; color: #8e8e93; text-decoration: line-through; }
+.b-pristatyta { background: #E6F4EC; color: #1A7A4A; }   /* žalia */
+.b-issista    { background: #E3EEF8; color: #1A4F80; }   /* mėlyna */
+.b-vykdoma    { background: #FEF3C7; color: #A16207; }   /* geltona */
+.b-priimta    { background: #FCE7F1; color: #B03A6E; }   /* rožinė */
+.b-gauta      { background: #FCE9E7; color: #C0392B; }   /* raudona */
+.b-atsaukta   { background: #EDEDF0; color: #8e8e93; }   /* pilka */
 .b-default    { background: #f2f2f7; color: #6e6e73; }
 
 /* Overdue / Pending overlays */
@@ -989,9 +989,12 @@ function renderTransport(data) {
 
 /* ── Status distribution chart ── */
 const STATUS_COLORS = {
-  'Gauta': '#0F7870', 'Priimta': '#1A4F80', 'Vykdoma': '#C47A00',
-  'Išsiųsta': '#0F6B3A', 'Pristatyta': '#1A7A4A',
-  'Atšaukta': '#AEADB3', 'Atšauktas': '#AEADB3',
+  'Gauta': '#C0392B',      // raudona
+  'Priimta': '#D6689A',    // rožinė
+  'Vykdoma': '#E0A800',    // geltona
+  'Išsiųsta': '#2A6FAD',   // mėlyna
+  'Pristatyta': '#1A7A4A', // žalia
+  'Atšaukta': '#AEADB3', 'Atšauktas': '#AEADB3', // pilka
 };
 function renderStatus(data) {
   const c = {};
