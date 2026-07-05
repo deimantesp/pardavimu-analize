@@ -284,7 +284,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 /* Savaitės krovinių planas */
 #week-overlay { display: none; position: fixed; inset: 0; z-index: 520; background: #f0f2f5; flex-direction: column; overflow-y: auto; }
 #week-overlay.open { display: flex; }
-.week-body { padding: 1.3rem 1.5rem 2rem; max-width: 1100px; width: 100%; margin: 0 auto; }
+.week-body { padding: 1.3rem 1.5rem 2rem; max-width: 1500px; width: 100%; margin: 0 auto; }
 #wk-print-title { display: none; font-size: 20px; font-weight: 800; color: #0A2342; margin-bottom: 1rem; }
 .wk-day { background: white; border-radius: 12px; margin-bottom: 0.9rem; overflow: hidden; border: 1px solid #e5e5ea; }
 .wk-day.is-today { border-color: #1A7A4A; box-shadow: 0 0 0 1px #1A7A4A; }
@@ -292,25 +292,35 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 .wk-day-head { display: flex; justify-content: space-between; align-items: center; padding: 0.55rem 1rem; background: #0A2342; color: white; }
 .wk-day-head .wd-name { font-weight: 800; font-size: 15px; }
 .wk-day-head .wd-sum { font-size: 13px; opacity: 0.85; }
-.wk-day-body { padding: 0.4rem 1rem 0.7rem; }
-.wk-load { display: flex; align-items: center; gap: 0.7rem; padding: 5px 0; border-bottom: 1px solid #f0f2f5; font-size: 13.5px; }
-.wk-load:last-child { border-bottom: none; }
-.wk-empty { color: #c7c7cc; font-size: 12.5px; padding: 6px 0; }
-.wk-notes { margin-top: 0.55rem; border: 1px dashed #c7c7cc; border-radius: 8px; min-height: 48px; padding: 5px 10px; font-size: 11px; color: #b0b0b8; }
-.wk-prod-summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #eef0f3; }
-.wk-prod-chip { font-size: 12.5px; background: #eef4fb; color: #1A4F80; border-radius: 20px; padding: 3px 11px; }
+.wk-empty { color: #c7c7cc; font-size: 12.5px; padding: 10px; }
+/* Produktų stulpeliai */
+.wk-day-cols { display: grid; gap: 8px; padding: 0.6rem 0.8rem 0.8rem; }
+.wk-col { border: 1px solid #e5e5ea; border-radius: 8px; overflow: hidden; }
+.wk-col-head { background: #eef4fb; color: #1A4F80; font-weight: 800; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.3px; padding: 5px 9px; border-bottom: 1px solid #dbe6f2; }
+.wk-col-empty { color: #d1d1d6; font-size: 12px; padding: 8px; text-align: center; }
+.wk-o { padding: 6px 9px; border-bottom: 1px dashed #eef0f3; }
+.wk-o:last-child { border-bottom: none; }
+.wk-o-top { font-weight: 700; font-size: 13px; }
+.wk-o-nr { font-weight: 500; color: #8e8e93; font-size: 11px; }
+.wk-o-meta { font-size: 11px; color: #6e6e73; margin-top: 2px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.wk-o-com { color: #8e8e93; font-size: 11px; margin-top: 2px; }
+.wk-o-veh { margin-top: 4px; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+.wk-veh-input { flex: 1; border: none; border-bottom: 1px solid #c7c7cc; font-family: 'Montserrat', sans-serif; font-size: 11.5px; padding: 1px 2px; outline: none; background: transparent; color: #1a1a2e; }
+.wk-veh-input:focus { border-bottom-color: #2B6CB0; }
 
 @media print {
+  @page { size: landscape; margin: 8mm; }
   body * { visibility: hidden; }
   #week-overlay, #week-overlay * { visibility: visible; }
   #week-overlay { position: absolute; inset: 0; overflow: visible; background: white; display: block; }
   .wk-noprint { display: none !important; }
   #wk-print-title { display: block; }
   .week-body { max-width: 100%; padding: 0; }
-  .wk-day { break-inside: avoid; border: 1px solid #999; box-shadow: none; margin-bottom: 0.5rem; }
+  .wk-day { break-inside: avoid; border: 1px solid #999; box-shadow: none; margin-bottom: 0.4rem; }
   .wk-day-head { background: #0A2342 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .wk-day.is-weekend .wk-day-head { background: #6e6e73 !important; }
-  .wk-notes { min-height: 40px; }
+  .wk-col-head { background: #eef4fb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .wk-veh-input { border-bottom: 1px solid #999; }
 }
 </style>
 </head>
@@ -1561,6 +1571,9 @@ function closeWeek() {
 function navigateWeek(dir) { weekOffset += dir; renderWeek(); }
 function printWeek() { window.print(); }
 
+const PROD_ORDER = ['medium','ekstra','extra','ekstra 1-6','extra 1-6','premium','palaidas','mix','silos','silosas'];
+function prodRank(p) { const i = PROD_ORDER.indexOf((p || '').toLowerCase().trim()); return i < 0 ? 900 : i; }
+
 function renderWeek() {
   const now = new Date();
   const monday = new Date(now);
@@ -1572,44 +1585,44 @@ function renderWeek() {
   document.getElementById('wk-range').textContent = rangeStr;
   document.getElementById('wk-print-title').textContent = 'Savaitės krovinių planas: ' + rangeStr;
 
+  const weekFrom = toDateStr(days[0]), weekTo = toDateStr(days[6]);
+  const weekLoads = ALL_DATA.filter(o => o.krovimo_data >= weekFrom && o.krovimo_data <= weekTo);
+  // Bendri produktų stulpeliai visai savaitei (kad dienose sutaptų)
+  const products = [...new Set(weekLoads.map(o => o.produktas || '—'))]
+    .sort((a, b) => prodRank(a) - prodRank(b) || a.localeCompare(b));
+  const nCols = Math.max(products.length, 1);
+
   document.getElementById('week-grid').innerHTML = days.map((d, i) => {
     const ds = toDateStr(d);
     const isToday = ds === todayStr;
     const isWknd = i >= 5;
-    const loads = ALL_DATA.filter(o => o.krovimo_data === ds)
-      .sort((a, b) => (a.produktas || '').localeCompare(b.produktas || '') || (a.uzsakovas || '').localeCompare(b.uzsakovas || ''));
-    let sumM3 = 0; loads.forEach(o => { const v = calcM3(o); if (v) sumM3 += v; });
+    const dayLoads = ALL_DATA.filter(o => o.krovimo_data === ds);
+    let sumM3 = 0; dayLoads.forEach(o => { const v = calcM3(o); if (v) sumM3 += v; });
 
-    // Produktų suvestinė šiai dienai
-    const prodMap = {};
-    loads.forEach(o => {
-      const p = o.produktas || '—';
-      if (!prodMap[p]) prodMap[p] = { m3: 0, cnt: 0 };
-      const v = calcM3(o); prodMap[p].m3 += (v || 0); prodMap[p].cnt++;
-    });
-    const prodChips = Object.entries(prodMap).sort((a, b) => b[1].m3 - a[1].m3).map(([p, x]) =>
-      `<span class="wk-prod-chip">${p} · <strong>${x.m3 ? x.m3.toLocaleString('lt-LT') + ' m³' : x.cnt + ' vnt'}</strong> <span style="opacity:0.55">(${x.cnt})</span></span>`
-    ).join('');
-
-    const loadHtml = loads.length ? loads.map(o => `
-      <div class="wk-load">
-        <span style="color:#2B6CB0;font-weight:700;min-width:80px">${o.produktas || '—'}</span>
-        <span style="font-weight:700;min-width:160px">${o.uzsakovas || '—'}</span>
-        <span style="font-weight:700;min-width:60px">${fmtM3(calcM3(o))} m³</span>
-        <span style="min-width:90px">${badge(o.busena)}</span>
-        <span style="color:#6e6e73;font-size:12px">${o.transportas || ''}</span>
-        <span style="color:#8e8e93;font-size:11.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.komentaras || ''}</span>
-      </div>`).join('') : '<div class="wk-empty">— nėra krovinių —</div>';
+    const colsHtml = products.length ? products.map(p => {
+      const orders = dayLoads.filter(o => (o.produktas || '—') === p)
+        .sort((a, b) => (a.uzsakovas || '').localeCompare(b.uzsakovas || ''));
+      let pM3 = 0; orders.forEach(o => { const v = calcM3(o); if (v) pM3 += v; });
+      const ordersHtml = orders.length ? orders.map(o => `
+        <div class="wk-o">
+          <div class="wk-o-top">${o.uzsakovas || '—'}${o.uzsakymo_nr ? ' <span class="wk-o-nr">' + o.uzsakymo_nr + '</span>' : ''}</div>
+          <div class="wk-o-meta">${badge(o.busena)} <span style="color:#8e8e93">${fmtM3(calcM3(o))} m³</span>${o.transportas ? ' · ' + o.transportas : ''}</div>
+          ${o.komentaras ? `<div class="wk-o-com">${o.komentaras}</div>` : ''}
+          <div class="wk-o-veh">🚚 <input class="wk-veh-input" type="text" placeholder="automobilio info…"></div>
+        </div>`).join('') : '<div class="wk-col-empty">—</div>';
+      return `<div class="wk-col">
+        <div class="wk-col-head">${p}${pM3 ? ' · ' + pM3.toLocaleString('lt-LT') + ' m³' : ''}</div>
+        ${ordersHtml}
+      </div>`;
+    }).join('') : '<div class="wk-empty">— nėra krovinių —</div>';
 
     return `<div class="wk-day${isToday ? ' is-today' : ''}${isWknd ? ' is-weekend' : ''}">
       <div class="wk-day-head">
         <span class="wd-name">${DOW_FULL[i]} · ${ds.slice(5)}${isToday ? ' · ŠIANDIEN' : ''}</span>
-        <span class="wd-sum">${loads.length} krov.${sumM3 ? ' · ' + sumM3.toLocaleString('lt-LT') + ' m³' : ''}</span>
+        <span class="wd-sum">${dayLoads.length} krov.${sumM3 ? ' · ' + sumM3.toLocaleString('lt-LT') + ' m³' : ''}</span>
       </div>
-      <div class="wk-day-body">
-        ${loads.length ? `<div class="wk-prod-summary">${prodChips}</div>` : ''}
-        ${loadHtml}
-        <div class="wk-notes">Pastabos:</div>
+      <div class="wk-day-cols" style="grid-template-columns:repeat(${nCols},minmax(0,1fr))">
+        ${colsHtml}
       </div>
     </div>`;
   }).join('');
