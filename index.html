@@ -2005,15 +2005,15 @@ function openCustomer(name) {
   // CRM sekcija
   const crmEl = document.getElementById('customer-crm');
   const fillCRM = (customerName) => {
-    const crm = findCRM(customerName);
-    if (crm) {
+    const matches = findAllCRM(customerName);
+    if (matches.length > 0) {
       const row = (label, val, full) => val ? `
         <div class="crm-field${full ? ' crm-full' : ''}">
           <div class="crm-label">${label}</div>
           <div class="crm-val">${val}</div>
         </div>` : '';
-      crmEl.innerHTML = `<div class="card crm-card" style="margin-bottom:1.1rem">
-        <div class="card-title">📋 CRM informacija
+      const renderOne = crm => `<div class="card crm-card" style="margin-bottom:0.8rem">
+        <div class="card-title">📋 ${escapeHtml(crm.imone)}
           <span class="card-title-sub">${escapeHtml(crm.salis)}${crm.sektorius ? ' · ' + escapeHtml(crm.sektorius) : ''}</span>
         </div>
         <div class="crm-grid">
@@ -2028,6 +2028,7 @@ function openCustomer(name) {
           ${row('✅ Kas buvo nutarta', escapeHtml(crm.nutarta), true)}
         </div>
       </div>`;
+      crmEl.innerHTML = matches.map(renderOne).join('');
     } else {
       crmEl.innerHTML = CRM_DATA.length
         ? `<div class="crm-no-match">⚠️ CRM sąraše nerasta: <strong>${escapeHtml(customerName)}</strong></div>`
@@ -2497,13 +2498,22 @@ async function loadCRM() {
   } catch(e) { console.warn('CRM load failed', e); }
 }
 
-function findCRM(name) {
-  if (!name || !CRM_DATA.length) return null;
+function findAllCRM(name) {
+  if (!name || !CRM_DATA.length) return [];
   const q = name.trim().toLowerCase().replace(/\s+/g, ' ');
-  return CRM_DATA.find(c => c.imone.toLowerCase().replace(/\s+/g, ' ') === q)
-      || CRM_DATA.find(c => c.imone.toLowerCase().replace(/\s+/g, ' ').includes(q))
-      || CRM_DATA.find(c => q.includes(c.imone.toLowerCase().replace(/\s+/g, ' ')))
-      || null;
+  // Exact match first, then partial — deduplicated by imone
+  const seen = new Set();
+  const add = arr => arr.forEach(c => { if (!seen.has(c.imone)) { seen.add(c.imone); results.push(c); } });
+  const results = [];
+  add(CRM_DATA.filter(c => c.imone.toLowerCase().replace(/\s+/g, ' ') === q));
+  add(CRM_DATA.filter(c => c.imone.toLowerCase().replace(/\s+/g, ' ').includes(q)));
+  add(CRM_DATA.filter(c => q.includes(c.imone.toLowerCase().replace(/\s+/g, ' ').replace(/['''""]/g, ''))));
+  return results;
+}
+
+function findCRM(name) {
+  const all = findAllCRM(name);
+  return all[0] || null;
 }
 
 function formatContacts(str) {
