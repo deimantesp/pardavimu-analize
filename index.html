@@ -332,6 +332,11 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 .wk-o-veh { margin-top: 4px; font-size: 12px; display: flex; align-items: center; gap: 4px; }
 .wk-veh-input { flex: 1; border: none; border-bottom: 1px solid #c7c7cc; font-family: 'Montserrat', sans-serif; font-size: 11.5px; padding: 1px 2px; outline: none; background: transparent; color: #1a1a2e; }
 .wk-veh-input:focus { border-bottom-color: #2B6CB0; }
+.wk-time-row { display:flex; align-items:center; gap:5px; margin-top:4px; }
+.wk-time-badge { font-size:13px; font-weight:800; color:#C0392B; display:none; }
+.wk-time-input { width:84px; border:none; border-bottom:2px solid #e5e5ea; font-family:'Montserrat',sans-serif; font-size:13px; font-weight:700; padding:1px 2px; outline:none; background:transparent; color:#C0392B; cursor:pointer; }
+.wk-time-input:focus { border-bottom-color:#C0392B; }
+.wk-time-input:not([data-set="1"]) { color:#8e8e93; font-weight:400; }
 
 @media print {
   @page { size: A4 landscape; margin: 5mm; }
@@ -360,6 +365,9 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
   .wk-o-com { font-size: 7px; margin-top: 0; }
   .wk-o-veh { font-size: 7.5px; margin-top: 2px; }
   .wk-veh-input { font-size: 7.5px; border-bottom: 1px solid #999; }
+  .wk-time-row { margin-top: 2px; }
+  .wk-time-input { font-size: 8px; width: 60px; }
+  .wk-time-badge { font-size: 8px; }
   .badge { font-size: 7px; padding: 0 4px; }
 }
 </style>
@@ -1831,14 +1839,26 @@ function renderWeek() {
       const orders = dayLoads.filter(o => (o.produktas || '—') === p)
         .sort((a, b) => (a.uzsakovas || '').localeCompare(b.uzsakovas || ''));
       let pM3 = 0; orders.forEach(o => { const v = calcM3(o); if (v) pM3 += v; });
-      const ordersHtml = orders.length ? orders.map(o => `
+      const ordersHtml = orders.length ? orders.map(o => {
+        const timeKey = `wk_t_${o.seka}_${ds}`;
+        const savedTime = localStorage.getItem(timeKey) || '';
+        return `
         <div class="wk-o" onclick="openEditOrder('${o.seka}')" style="cursor:pointer">
           <div class="wk-o-top">${escapeHtml(o.produktas || '—')} <span style="font-weight:600;color:#1A7A4A">${calcM3(o) ? fmtM3(calcM3(o)) + ' m³' : ''}</span>${o.uzsakymo_nr ? ' <span class="wk-o-nr">' + escapeHtml(o.uzsakymo_nr) + '</span>' : ''}</div>
           <div style="font-size:11px;color:#444;margin-top:1px;font-weight:600">${escapeHtml(o.uzsakovas || '—')}</div>
           <div class="wk-o-meta">${badge(o.busena)}${o.transportas ? ' · ' + escapeHtml(o.transportas) : ''}</div>
           ${o.komentaras ? `<div class="wk-o-com">${escapeHtml(o.komentaras)}</div>` : ''}
+          <div class="wk-time-row" onclick="event.stopPropagation()">
+            <span class="wk-time-badge" style="${savedTime ? 'display:inline' : ''};cursor:pointer" title="Spustelėk norėdamas keisti"
+              onclick="this.style.display='none';this.nextElementSibling.style.display='inline';this.nextElementSibling.focus()">⏰ ${savedTime || ''}</span>
+            <input class="wk-time-input" type="time" value="${savedTime}" data-tkey="${timeKey}" ${savedTime ? 'data-set="1"' : ''}
+              style="display:${savedTime ? 'none' : 'inline'}"
+              onchange="(function(el){const v=el.value;const key=el.dataset.tkey;if(v){localStorage.setItem(key,v);el.previousElementSibling.textContent='⏰ '+v;el.previousElementSibling.style.display='inline';el.style.display='none';el.dataset.set='1';}else{localStorage.removeItem(key);el.previousElementSibling.textContent='';el.previousElementSibling.style.display='none';delete el.dataset.set;}})(this)"
+              onblur="(function(el){if(el.dataset.set){el.style.display='none';el.previousElementSibling.style.display='inline';}})(this)">
+          </div>
           <div class="wk-o-veh" onclick="event.stopPropagation()">🚚 <input class="wk-veh-input" type="text" placeholder="automobilio info…"></div>
-        </div>`).join('') : '<div class="wk-col-empty">—</div>';
+        </div>`;
+      }).join('') : '<div class="wk-col-empty">—</div>';
       return `<div class="wk-col">
         <div class="wk-col-head">${escapeHtml(p)}${pM3 ? ' · ' + pM3.toLocaleString('lt-LT') + ' m³' : ''}</div>
         ${ordersHtml}
