@@ -705,6 +705,17 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
   <div style="padding:1.2rem 1.5rem 2rem;max-width:1400px;width:100%;margin:0 auto">
     <div id="gam-loading" style="text-align:center;padding:3rem;color:#6e6e73;font-size:15px">Kraunama…</div>
     <div id="gam-body" style="display:none">
+
+      <!-- Metinis vaizdas -->
+      <div class="card" style="margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.9rem">
+          <div class="card-title" style="margin:0">Metinis vaizdas</div>
+          <select class="cal-sel" id="gam-ann-year" onchange="renderGamybaAnnual()" style="color:#0A2342;background:#f2f2f7;border-color:#e5e5ea"></select>
+        </div>
+        <div id="gam-toggles" style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.9rem"></div>
+        <div style="height:300px"><canvas id="gam-annual-chart"></canvas></div>
+      </div>
+
       <!-- KPI -->
       <div id="gam-kpi" class="kpi-row" style="margin-bottom:1.2rem"></div>
       <!-- Produktai + Pamainos -->
@@ -2238,11 +2249,12 @@ async function loadGamyba() {
         date:  o.date||'', shift: parseInt(o['pamaina']||o['shift'])||0,
         type:  o['pamaina tip']||o['type']||'',
         m3:    M3.reduce((s,k) => s+n(o[k]),0),
-        smelis:   n(o['s kg']),
+        smelis:    n(o['s kg']),
         krituliai: n(o['krituliai']||o['krit']) + n(o['e maisai']) + n(o['e bb']),
-        waste: n(o['s kg']) + n(o['krituliai']||o['krit']) + n(o['e maisai']) + n(o['e bb']),
-        gas:   n(o['dujos m3']||o['gas']),
-        kwh:   n(o['elektra kwh']||o['kwh']),
+        waste:     n(o['s kg']) + n(o['krituliai']||o['krit']) + n(o['e maisai']) + n(o['e bb']),
+        gas:       n(o['dujos m3']||o['gas']),
+        kwh:       n(o['elektra kwh']||o['kwh']),
+        raw:       ['0 zaliava kg','1 zaliava kg','2 zaliava kg','9 zaliava kg','x zaliava kg'].reduce((s,k)=>s+n(o[k]),0),
         prods,
       };
     }).filter(d => d.date && d.shift > 0);
@@ -2253,11 +2265,14 @@ async function loadGamyba() {
     gamYear  = parseInt(last.substring(0,4));
     gamMonth = parseInt(last.substring(5,7))-1;
 
-    // Metų pasirinkimas
+    // Metų pasirinkimas (mėnesinis ir metinis)
     const years = [...new Set(dates.map(d=>d.substring(0,4)))].sort().reverse();
     const ySel = document.getElementById('gam-year-sel');
     ySel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    const annYSel = document.getElementById('gam-ann-year');
+    annYSel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
 
+    buildGamToggles();
     renderGamyba();
   } catch(e) {
     document.getElementById('gam-loading').textContent = 'Klaida: ' + e.message;
@@ -2276,6 +2291,72 @@ function gamybaSel() {
   renderGamyba();
 }
 
+/* ── Metinis grafikas ── */
+const GAM_SERIES = {
+  'P1 m³':      { color:'#C47A00', fn: d => d.shift===1 ? d.m3 : 0 },
+  'P2 m³':      { color:'#2A6FAD', fn: d => d.shift===2 ? d.m3 : 0 },
+  'P3 m³':      { color:'#1A7A4A', fn: d => d.shift===3 ? d.m3 : 0 },
+  'Premium':    { color:'#6B46C1', fn: d => d.prods['Premium']||0 },
+  'Extra':      { color:'#0F7870', fn: d => d.prods['Extra']||d.prods['Ekstra']||0 },
+  'Medium':     { color:'#D97706', fn: d => d.prods['Medium']||0 },
+  'Silos':      { color:'#2B6CB0', fn: d => (d.prods['A Silos']||0)+(d.prods['B Silos']||0)+(d.prods['C Silos']||0) },
+  '0-1mm':      { color:'#AEADB3', fn: d => d.prods['0-1mm']||0 },
+  'Dujos m³':   { color:'#C0392B', fn: d => d.gas },
+  'Žaliavos kg':{ color:'#7A5200', fn: d => d.raw },
+  'Krituliai':  { color:'#E07055', fn: d => d.krituliai },
+  'Smėlis':     { color:'#A0522D', fn: d => d.smelis },
+};
+let gamAnnActive = new Set(['P1 m³','P2 m³','Dujos m³']);
+
+function buildGamToggles() {
+  document.getElementById('gam-toggles').innerHTML = Object.keys(GAM_SERIES).map(k => {
+    const on = gamAnnActive.has(k);
+    return `<button onclick="gamToggle('${k}')" id="gtog-${k.replace(/[^a-z0-9]/gi,'_')}"
+      style="font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;border:2px solid ${GAM_SERIES[k].color};cursor:pointer;
+             background:${on ? GAM_SERIES[k].color : 'transparent'};color:${on ? '#fff' : GAM_SERIES[k].color}">${k}</button>`;
+  }).join('');
+}
+function gamToggle(k) {
+  if (gamAnnActive.has(k)) gamAnnActive.delete(k); else gamAnnActive.add(k);
+  buildGamToggles();
+  renderGamybaAnnual();
+}
+
+function renderGamybaAnnual() {
+  const yr = parseInt(document.getElementById('gam-ann-year').value);
+  const MONTHS = ['Sau','Vas','Kov','Bal','Geg','Bir','Lie','Rgp','Rgs','Spa','Lap','Grd'];
+  // Agreguojame pagal mėnesį
+  const byMonth = Array.from({length:12}, () => []);
+  GAMYBA_DATA.filter(d => d.date.startsWith(yr+'')).forEach(d => {
+    const m = parseInt(d.date.substring(5,7)) - 1;
+    if (m >= 0 && m < 12) byMonth[m].push(d);
+  });
+
+  const datasets = [...gamAnnActive].map(k => {
+    const s = GAM_SERIES[k];
+    return {
+      label: k,
+      data: byMonth.map(ms => +ms.reduce((sum,d) => sum + s.fn(d), 0).toFixed(1)),
+      borderColor: s.color, backgroundColor: s.color + '22',
+      borderWidth: 2, pointRadius: 3, tension: 0.3, fill: false,
+    };
+  });
+
+  mkChart('gam-annual-chart', {
+    type: 'line',
+    data: { labels: MONTHS, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', labels: { font: { size: 11, family:"'Montserrat'" }, boxWidth: 12 } } },
+      scales: {
+        x: { grid: { display: false } },
+        y: { beginAtZero: true, grid: { color: '#f0f0f0' } },
+      }
+    }
+  });
+}
+
 function toggleGamTable() {
   const wrap = document.getElementById('gam-table-wrap');
   const arrow = document.getElementById('gam-table-arrow');
@@ -2287,6 +2368,8 @@ function toggleGamTable() {
 function renderGamyba() {
   document.getElementById('gam-month-sel').value = gamMonth;
   document.getElementById('gam-year-sel').value  = gamYear;
+  document.getElementById('gam-ann-year').value  = gamYear;
+  renderGamybaAnnual();
   const prefix = gamYear + '-' + String(gamMonth+1).padStart(2,'0');
   const data = GAMYBA_DATA.filter(d => d.date.startsWith(prefix));
 
