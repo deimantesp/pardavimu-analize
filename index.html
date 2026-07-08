@@ -2238,7 +2238,9 @@ async function loadGamyba() {
         date:  o.date||'', shift: parseInt(o['pamaina']||o['shift'])||0,
         type:  o['pamaina tip']||o['type']||'',
         m3:    M3.reduce((s,k) => s+n(o[k]),0),
-        waste: n(o['krituliai']||o['krit']) + n(o['e maisai']) + n(o['e bb']),
+        smelis:   n(o['s kg']),
+        krituliai: n(o['krituliai']||o['krit']) + n(o['e maisai']) + n(o['e bb']),
+        waste: n(o['s kg']) + n(o['krituliai']||o['krit']) + n(o['e maisai']) + n(o['e bb']),
         gas:   n(o['dujos m3']||o['gas']),
         kwh:   n(o['elektra kwh']||o['kwh']),
         prods,
@@ -2299,7 +2301,8 @@ function renderGamyba() {
   document.getElementById('gam-kpi').innerHTML = [
     {label:'Iš viso m³', val: totM3.toFixed(1)+' m³', color:'#0A2342'},
     {label:'Darbo dienų', val: days, color:'#1A4F80'},
-    {label:'Atliekos', val: totWaste>0 ? totWaste.toFixed(0)+' kg' : '—', color:'#C0392B'},
+    {label:'Krituliai', val: data.reduce((s,d)=>s+d.krituliai,0)>0 ? data.reduce((s,d)=>s+d.krituliai,0).toFixed(0)+' kg' : '—', color:'#C0392B'},
+    {label:'Smėlis', val: data.reduce((s,d)=>s+d.smelis,0)>0 ? data.reduce((s,d)=>s+d.smelis,0).toFixed(0)+' kg' : '—', color:'#8e5c00'},
     {label:'Dujos', val: totGas>0 ? totGas.toLocaleString('lt-LT')+' m³' : '—', color:'#7A5200'},
   ].map(k=>`<div class="kpi-card" style="border-top:3px solid ${k.color}">
     <div class="kpi-label">${k.label}</div>
@@ -2348,7 +2351,7 @@ function renderGamyba() {
   const tdStyle = 'padding:5px 8px;font-size:12px;border-bottom:1px solid #f0f0f0';
   const thead = `<tr><th style="${thStyle}">Data</th><th style="${thStyle}">Pamaina</th>
     ${allProds.map(p=>`<th style="${thStyle}">${escapeHtml(p)}</th>`).join('')}
-    <th style="${thStyle}">Viso m³</th><th style="${thStyle}">Atliekos kg</th><th style="${thStyle}">Dujos m³</th></tr>`;
+    <th style="${thStyle}">Viso m³</th><th style="${thStyle}">Krituliai kg</th><th style="${thStyle}">Smėlis kg</th><th style="${thStyle}">Dujos m³</th></tr>`;
   const tbody = Object.entries(byDay).sort(([a],[b])=>a.localeCompare(b)).flatMap(([date, shifts]) => {
     const dayM3 = shifts.reduce((s,d)=>s+d.m3,0);
     const rows = shifts.sort((a,b)=>a.shift-b.shift).map(d=>`<tr>
@@ -2356,7 +2359,8 @@ function renderGamyba() {
       <td style="${tdStyle}">P${d.shift}</td>
       ${allProds.map(p=>`<td style="${tdStyle};text-align:right">${d.prods[p]?.toFixed(1)||'—'}</td>`).join('')}
       <td style="${tdStyle};font-weight:700;text-align:right">${d.m3.toFixed(1)}</td>
-      <td style="${tdStyle};text-align:right;color:#C0392B">${d.waste>0?d.waste.toFixed(0):'—'}</td>
+      <td style="${tdStyle};text-align:right;color:#C0392B">${d.krituliai>0?d.krituliai.toFixed(0):'—'}</td>
+      <td style="${tdStyle};text-align:right;color:#8e5c00">${d.smelis>0?d.smelis.toFixed(0):'—'}</td>
       <td style="${tdStyle};text-align:right">${d.gas>0?d.gas.toFixed(0):'—'}</td>
     </tr>`).join('');
     const sumRow = shifts.length > 1 ? `<tr style="background:#f8f8f8">
