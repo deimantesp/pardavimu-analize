@@ -2027,19 +2027,36 @@ function showAuthGate(msg) {
 }
 async function tryLoad() {
   const hadToken = !!localStorage.getItem('po_secret');
-  document.getElementById('loading').style.display = '';
+  if (!hadToken) { showAuthGate(''); return; }
+
+  // Jei yra kešas — rodom akimirksniu, fone pakraunam naujus
+  const cached = localStorage.getItem('po_cache');
+  if (cached) {
+    try {
+      document.getElementById('auth-gate').classList.remove('show');
+      document.getElementById('loading').style.display = 'none';
+      init(JSON.parse(cached));
+    } catch (_) {}
+  } else {
+    document.getElementById('loading').style.display = '';
+  }
+
+  // Fone kraunam šviežius duomenis
   try {
     const data = await loadData();
+    localStorage.setItem('po_cache', JSON.stringify(data));
     document.getElementById('auth-gate').classList.remove('show');
+    document.getElementById('loading').style.display = 'none';
     init(data);
   } catch (e) {
-    if (e.authFail || !hadToken) {
-      localStorage.removeItem('po_secret');           // blogas/nėra — nepaliekam
-      // „Neteisingas" rodom tik jei tikrai buvo bandyta su slaptažodžiu, ne per pirmą įėjimą
-      showAuthGate(hadToken && e.authFail ? 'Neteisingas slaptažodis.' : '');
-    } else {
+    if (e.authFail) {
+      localStorage.removeItem('po_secret');
+      localStorage.removeItem('po_cache');
+      showAuthGate('Neteisingas slaptažodis.');
+    } else if (!cached) {
       document.getElementById('loading').textContent = 'Klaida: ' + e.message;
     }
+    // Jei yra kešas ir tik tinklo klaida — paliekam senus duomenis, nerodoam klaidos
   }
 }
 document.getElementById('auth-submit').onclick = () => {
