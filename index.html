@@ -2244,7 +2244,8 @@ function renderClarification(data) {
       <span style="color:#2B6CB0;font-weight:600;white-space:nowrap">${escapeHtml(d.produktas || '—')}</span>
       <span style="color:#6e6e73;white-space:nowrap">krovimas: <strong>${escapeHtml(d.krovimo_data || '—')}</strong></span>
       <span style="color:#8e8e93;font-style:italic;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(d.komentaras || '')}">${d.komentaras ? '"' + escapeHtml(d.komentaras) + '"' : '— komentaro nėra —'}</span>
-      <button class="clarif-btn" id="cb-${d.seka}" onclick="confirmOrder('${d.seka}', this)" style="margin-left:auto">Patvirtinti</button>
+      <button class="clarif-btn" onclick="openEditOrder('${d.seka}')" style="margin-left:auto;background:#1A4F80">✏️ Redaguoti</button>
+      <button class="clarif-btn" id="cb-${d.seka}" onclick="confirmOrder('${d.seka}', this)">Patvirtinti</button>
     </div>`).join('');
 }
 
