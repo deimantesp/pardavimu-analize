@@ -720,8 +720,11 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
       </div>
       <!-- Dienos lentelė -->
       <div class="card">
-        <div class="card-title">Dienos duomenys</div>
-        <div style="overflow-x:auto">
+        <div class="card-title" onclick="toggleGamTable()" style="cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center">
+          <span>Dienos duomenys</span>
+          <span id="gam-table-arrow" style="font-size:13px;opacity:0.6">▶ Rodyti</span>
+        </div>
+        <div id="gam-table-wrap" style="display:none;overflow-x:auto;margin-top:0.75rem">
           <table id="gam-table" style="width:100%;border-collapse:collapse;font-size:12px"></table>
         </div>
       </div>
@@ -2269,6 +2272,14 @@ function gamybaSel() {
   gamMonth = parseInt(document.getElementById('gam-month-sel').value);
   gamYear  = parseInt(document.getElementById('gam-year-sel').value);
   renderGamyba();
+}
+
+function toggleGamTable() {
+  const wrap = document.getElementById('gam-table-wrap');
+  const arrow = document.getElementById('gam-table-arrow');
+  const open = wrap.style.display === 'none';
+  wrap.style.display = open ? '' : 'none';
+  arrow.textContent = open ? '▼ Slėpti' : '▶ Rodyti';
 }
 
 function renderGamyba() {
