@@ -166,6 +166,16 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 
 /* Loading */
 #loading { position: fixed; inset: 0; background: rgba(240,242,245,0.92); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: #0A2342; z-index: 999; }
+#auth-gate { position: fixed; inset: 0; background: #0A2342; display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+#auth-gate.show { display: flex; }
+.auth-box { background: #fff; border-radius: 16px; padding: 28px 26px; width: 100%; max-width: 340px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); text-align: center; }
+.auth-title { font-size: 19px; font-weight: 800; color: #0A2342; }
+.auth-sub { font-size: 13px; color: #6e6e73; margin: 6px 0 16px; }
+.auth-box input { width: 100%; font-family: inherit; font-size: 15px; padding: 11px 13px; border: 1px solid #d0d5dd; border-radius: 10px; outline: none; margin-bottom: 10px; }
+.auth-box input:focus { border-color: #2B6CB0; box-shadow: 0 0 0 3px rgba(43,108,176,0.15); }
+.auth-box button { width: 100%; font-family: inherit; font-size: 15px; font-weight: 700; padding: 11px; border: none; border-radius: 10px; background: #2B6CB0; color: #fff; cursor: pointer; }
+.auth-box button:hover { background: #245a95; }
+.auth-msg { font-size: 13px; font-weight: 600; color: #C0392B; min-height: 18px; margin-top: 10px; }
 .footer { text-align: center; font-size: 11px; color: #c7c7cc; padding: 0.75rem; }
 
 .clarif-btn {
@@ -342,6 +352,16 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 <body>
 
 <div id="loading">Kraunama duomenys…</div>
+
+<div id="auth-gate">
+  <div class="auth-box">
+    <div class="auth-title">🔒 Pardavimų analizė</div>
+    <div class="auth-sub">Įvesk prieigos slaptažodį</div>
+    <input type="password" id="auth-token" autocomplete="current-password" placeholder="Slaptažodis">
+    <button id="auth-submit">Įeiti</button>
+    <div id="auth-gate-msg" class="auth-msg"></div>
+  </div>
+</div>
 
 <div class="page-header">
   <div class="header-title">
@@ -706,7 +726,8 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 </div>
 
 <script>
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQkSb05g43mOWiI3PABzhHULN7jeF79C2tmYfxZ0UXCGygXXYJ-GMgmimdZZwTWLzPpuE5mzUGKoUqM/pub?gid=0&single=true&output=csv';
+// Duomenys skaitomi per autentifikuotą WRITE_ENDPOINT (mode:'read'), ne per viešą CSV —
+// Google lentelė nebeturi būti „Publish to web". Slaptažodis niekada nesaugomas šiame kode.
 
 // Užsakymų pildymui: Google Apps Script „Web App" URL.
 // Kol tuščia — mygtukas „Naujas užsakymas" nerodomas.
@@ -830,11 +851,22 @@ function badge(s) {
   return `<span class="badge ${cls}">${escapeHtml(s || '—')}</span>`;
 }
 
+// Skaitymas eina per autentifikuotą Apps Script endpoint'ą (ne per viešą CSV):
+// POST {mode:'read', token} → {ok, csv}. Token NEeina į URL. Klaida su .authFail
+// paleidžia slaptažodžio užtvarą (žr. tryLoad).
 async function loadData() {
-  const r = await fetch(CSV_URL + '&t=' + Date.now());
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const text = await r.text();
-  const rows = parseCSV(text);
+  const token = localStorage.getItem('po_secret') || '';
+  const resp = await fetch(WRITE_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ mode: 'read', token }),
+  });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  let out;
+  try { out = await resp.json(); }
+  catch (_) { throw new Error('Netikėtas atsakymas iš serverio'); }
+  if (!out.ok) { const e = new Error(out.error || 'Nepavyko nuskaityti'); e.authFail = true; throw e; }
+  const rows = parseCSV(out.csv || '');
   return rows.slice(1).map(v => {
     return {
       seka:          cleanCell(v[0]),
@@ -847,6 +879,7 @@ async function loadData() {
       transportas:   cleanCell(v[7]),
       m3:            cleanCell(v[8]),   // esama m³ reikšmė lentelėje (redagavimui)
       komentaras:    cleanCell(v[9]),
+      uid:           cleanCell(v[10]),  // K stulpelis — unikalus ID (redagavimui)
     };
   }).filter(d => d.uzsakovas && /^\d+$/.test(d.seka));
 }
@@ -1824,7 +1857,7 @@ function openEditOrder(seka) {
   const d = ALL_DATA.find(o => o.seka === String(seka));
   if (!d) return;
   EDIT_SEKA = String(seka);
-  EDIT_LOCATOR = { seka: d.seka, uzsakymo_data: d.uzsakymo_data };
+  EDIT_LOCATOR = { uid: d.uid || '', seka: d.seka, uzsakymo_data: d.uzsakymo_data };
   document.getElementById('om-title').textContent  = '✏️ Redaguoti užsakymą (eil. ' + seka + ')';
   document.getElementById('om-save-btn').textContent = 'Atnaujinti';
   document.getElementById('of-uzsakovas').value    = d.uzsakovas || '';
@@ -1988,12 +2021,44 @@ function init(data) {
   document.getElementById('loading').style.display = 'none';
 }
 
-(async () => {
-  try { init(await loadData()); }
-  catch(e) {
-    document.getElementById('loading').textContent = 'Klaida: ' + e.message;
+/* ── Prieigos užtvara + duomenų krovimas ──
+   Slaptažodis saugomas tik localStorage (po_secret), niekada šiame kode. */
+function showAuthGate(msg) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('auth-gate').classList.add('show');
+  document.getElementById('auth-gate-msg').textContent = msg || '';
+  const el = document.getElementById('auth-token');
+  el.value = ''; el.focus();
+}
+async function tryLoad() {
+  const hadToken = !!localStorage.getItem('po_secret');
+  document.getElementById('loading').style.display = '';
+  try {
+    const data = await loadData();
+    document.getElementById('auth-gate').classList.remove('show');
+    init(data);
+  } catch (e) {
+    if (e.authFail || !hadToken) {
+      localStorage.removeItem('po_secret');           // blogas/nėra — nepaliekam
+      // „Neteisingas" rodom tik jei tikrai buvo bandyta su slaptažodžiu, ne per pirmą įėjimą
+      showAuthGate(hadToken && e.authFail ? 'Neteisingas slaptažodis.' : '');
+    } else {
+      document.getElementById('loading').textContent = 'Klaida: ' + e.message;
+    }
   }
-})();
+}
+document.getElementById('auth-submit').onclick = () => {
+  const v = document.getElementById('auth-token').value.trim();
+  if (!v) return;
+  localStorage.setItem('po_secret', v);
+  document.getElementById('auth-gate').classList.remove('show');
+  tryLoad();
+};
+document.getElementById('auth-token').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('auth-submit').click();
+});
+
+tryLoad();
 </script>
 </body>
 </html>
