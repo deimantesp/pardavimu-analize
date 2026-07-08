@@ -1549,7 +1549,7 @@ function renderCalendar(year, month) {
         : isPastLoad(o) ? 'cal-o-overdue'
         : 'cal-o-pending';
       const m3 = calcM3(o);
-      return `<span class="cal-order ${oc}" title="${escapeHtml(o.uzsakovas + ' · ' + o.produktas + ' · ' + o.busena)}">
+      return `<span class="cal-order ${oc}" title="${escapeHtml(o.uzsakovas + ' · ' + o.produktas + ' · ' + o.busena)}" onclick="openEditOrder('${escapeHtml(o.seka)}')" style="cursor:pointer">
         <span class="cal-o-prod">${escapeHtml(o.produktas||'—')}${m3 ? `<span class="cal-o-kiekis"> · ${fmtM3(m3)} m³</span>` : ''}</span>
         <div class="cal-o-klientas">${escapeHtml(o.uzsakovas||'')}</div>
       </span>`;
@@ -1657,12 +1657,12 @@ function renderWeek() {
         .sort((a, b) => (a.uzsakovas || '').localeCompare(b.uzsakovas || ''));
       let pM3 = 0; orders.forEach(o => { const v = calcM3(o); if (v) pM3 += v; });
       const ordersHtml = orders.length ? orders.map(o => `
-        <div class="wk-o">
+        <div class="wk-o" onclick="openEditOrder('${o.seka}')" style="cursor:pointer">
           <div class="wk-o-top">${escapeHtml(o.produktas || '—')} <span style="font-weight:600;color:#1A7A4A">${calcM3(o) ? fmtM3(calcM3(o)) + ' m³' : ''}</span>${o.uzsakymo_nr ? ' <span class="wk-o-nr">' + escapeHtml(o.uzsakymo_nr) + '</span>' : ''}</div>
           <div style="font-size:11px;color:#444;margin-top:1px;font-weight:600">${escapeHtml(o.uzsakovas || '—')}</div>
           <div class="wk-o-meta">${badge(o.busena)}${o.transportas ? ' · ' + escapeHtml(o.transportas) : ''}</div>
           ${o.komentaras ? `<div class="wk-o-com">${escapeHtml(o.komentaras)}</div>` : ''}
-          <div class="wk-o-veh">🚚 <input class="wk-veh-input" type="text" placeholder="automobilio info…"></div>
+          <div class="wk-o-veh" onclick="event.stopPropagation()">🚚 <input class="wk-veh-input" type="text" placeholder="automobilio info…"></div>
         </div>`).join('') : '<div class="wk-col-empty">—</div>';
       return `<div class="wk-col">
         <div class="wk-col-head">${escapeHtml(p)}${pM3 ? ' · ' + pM3.toLocaleString('lt-LT') + ' m³' : ''}</div>
