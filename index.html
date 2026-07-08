@@ -325,7 +325,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 .wk-col-empty { color: #d1d1d6; font-size: 12px; padding: 8px; text-align: center; }
 .wk-o { padding: 6px 9px; border-bottom: 1px dashed #eef0f3; }
 .wk-o:last-child { border-bottom: none; }
-.wk-o-top { font-weight: 700; font-size: 13px; }
+.wk-o-top { font-weight: 700; font-size: 13px; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
 .wk-o-nr { font-weight: 500; color: #8e8e93; font-size: 11px; }
 .wk-o-meta { font-size: 11px; color: #6e6e73; margin-top: 2px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .wk-o-com { color: #8e8e93; font-size: 11px; margin-top: 2px; }
@@ -1844,18 +1844,18 @@ function renderWeek() {
         const savedTime = localStorage.getItem(timeKey) || '';
         return `
         <div class="wk-o" onclick="openEditOrder('${o.seka}')" style="cursor:pointer">
-          <div class="wk-o-top">${escapeHtml(o.produktas || '—')} <span style="font-weight:600;color:#1A7A4A">${calcM3(o) ? fmtM3(calcM3(o)) + ' m³' : ''}</span>${o.uzsakymo_nr ? ' <span class="wk-o-nr">' + escapeHtml(o.uzsakymo_nr) + '</span>' : ''}</div>
-          <div style="font-size:11px;color:#444;margin-top:1px;font-weight:600">${escapeHtml(o.uzsakovas || '—')}</div>
-          <div class="wk-o-meta">${badge(o.busena)}${o.transportas ? ' · ' + escapeHtml(o.transportas) : ''}</div>
-          ${o.komentaras ? `<div class="wk-o-com">${escapeHtml(o.komentaras)}</div>` : ''}
-          <div class="wk-time-row" onclick="event.stopPropagation()">
-            <span class="wk-time-badge" style="${savedTime ? 'display:inline' : ''};cursor:pointer" title="Spustelėk norėdamas keisti"
-              onclick="this.style.display='none';this.nextElementSibling.style.display='inline';this.nextElementSibling.focus()">⏰ ${savedTime || ''}</span>
+          <div class="wk-o-top" onclick="event.stopPropagation()">
+            <span class="wk-time-badge" style="${savedTime ? '' : 'display:none'};cursor:pointer" title="Spustelėk norėdamas keisti"
+              onclick="this.style.display='none';this.nextElementSibling.style.display='inline';this.nextElementSibling.focus()">⏰ ${savedTime}</span>
             <input class="wk-time-input" type="time" value="${savedTime}" data-tkey="${timeKey}" ${savedTime ? 'data-set="1"' : ''}
               style="display:${savedTime ? 'none' : 'inline'}"
               onchange="(function(el){const v=el.value;const key=el.dataset.tkey;if(v){localStorage.setItem(key,v);el.previousElementSibling.textContent='⏰ '+v;el.previousElementSibling.style.display='inline';el.style.display='none';el.dataset.set='1';}else{localStorage.removeItem(key);el.previousElementSibling.textContent='';el.previousElementSibling.style.display='none';delete el.dataset.set;}})(this)"
               onblur="(function(el){if(el.dataset.set){el.style.display='none';el.previousElementSibling.style.display='inline';}})(this)">
+            <span onclick="this.closest('.wk-o').dispatchEvent(new MouseEvent('click',{bubbles:true}))">${escapeHtml(o.produktas || '—')} <span style="font-weight:600;color:#1A7A4A">${calcM3(o) ? fmtM3(calcM3(o)) + ' m³' : ''}</span>${o.uzsakymo_nr ? ' <span class="wk-o-nr">' + escapeHtml(o.uzsakymo_nr) + '</span>' : ''}</span>
           </div>
+          <div style="font-size:11px;color:#444;margin-top:1px;font-weight:600">${escapeHtml(o.uzsakovas || '—')}</div>
+          <div class="wk-o-meta">${badge(o.busena)}${o.transportas ? ' · ' + escapeHtml(o.transportas) : ''}</div>
+          ${o.komentaras ? `<div class="wk-o-com">${escapeHtml(o.komentaras)}</div>` : ''}
           <div class="wk-o-veh" onclick="event.stopPropagation()">🚚 <input class="wk-veh-input" type="text" placeholder="automobilio info…"></div>
         </div>`;
       }).join('') : '<div class="wk-col-empty">—</div>';
