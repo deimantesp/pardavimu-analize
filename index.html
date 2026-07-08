@@ -254,10 +254,13 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 .cal-o-prod { font-weight: 800; font-size: 11px; }
 .cal-o-kiekis { font-weight: 600; opacity: 0.85; }
 .cal-o-klientas { font-size: 9px; opacity: 0.75; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-o-overdue  { background: #fce9e7; color: #C0392B; }
-.cal-o-pending  { background: #E3EEF8; color: #1A4F80; }
-.cal-o-done     { background: #e6f4ec; color: #1A7A4A; }
-.cal-o-cancelled{ background: #f2f2f7; color: #8e8e93; }
+.cal-o-gauta     { background: #fce9e7; color: #9B2335; }
+.cal-o-priimta   { background: #fde8f3; color: #b0406e; }
+.cal-o-vykdoma   { background: #fff8e1; color: #7a5500; }
+.cal-o-issista   { background: #e3eef8; color: #2A6FAD; }
+.cal-o-pristatyta{ background: #e6f4ec; color: #1A7A4A; }
+.cal-o-atsaukta  { background: #f2f2f7; color: #8e8e93; }
+.cal-o-none      { background: #f0f0f5; color: #555; }
 .cal-more { font-size: 9px; color: #8e8e93; margin-top: 3px; }
 .cal-empty { font-size: 11px; color: #d1d1d6; margin-top: 6px; }
 .cal-cell.out-of-month { background: #f5f5f7; opacity: 0.35; pointer-events: none; }
@@ -1506,11 +1509,14 @@ function renderCalendar(year, month) {
   document.getElementById('cal-month-sel').value = month;
   document.getElementById('cal-year-sel').value  = year;
 
-  // Build order index by krovimo_data
+  // Build order index: krovimo_data jei tiksli, kitaip uzsakymo_data
   const byDate = {};
   ALL_DATA.forEach(d => {
-    if (!d.krovimo_data || !/^\d{4}-\d{2}-\d{2}$/.test(d.krovimo_data)) return;
-    (byDate[d.krovimo_data] = byDate[d.krovimo_data] || []).push(d);
+    const precise = /^\d{4}-\d{2}-\d{2}$/;
+    const dt = precise.test(d.krovimo_data) ? d.krovimo_data
+              : precise.test(d.uzsakymo_data) ? d.uzsakymo_data : null;
+    if (!dt) return;
+    (byDate[dt] = byDate[dt] || []).push({ ...d, _calDate: dt, _isOrderDate: !precise.test(d.krovimo_data) });
   });
 
   // First day of month, find preceding Monday
@@ -1543,15 +1549,18 @@ function renderCalendar(year, month) {
     ].filter(Boolean).join(' ');
 
     const orderHtml = orders.map(o => {
-      const oc = o.busena === 'Atšaukta'
-        ? 'cal-o-cancelled'
-        : (o.busena === 'Pristatyta' || o.busena === 'Išsiųsta') ? 'cal-o-done'
-        : isPastLoad(o) ? 'cal-o-overdue'
-        : 'cal-o-pending';
+      const oc = o.busena === 'Pristatyta' ? 'cal-o-pristatyta'
+        : (o.busena === 'Išsiųsta')        ? 'cal-o-issista'
+        : o.busena === 'Vykdoma'           ? 'cal-o-vykdoma'
+        : o.busena === 'Priimta'           ? 'cal-o-priimta'
+        : o.busena === 'Gauta'             ? 'cal-o-gauta'
+        : (o.busena === 'Atšaukta' || o.busena === 'Atšauktas') ? 'cal-o-atsaukta'
+        : 'cal-o-none';
       const m3 = calcM3(o);
-      return `<span class="cal-order ${oc}" title="${escapeHtml(o.uzsakovas + ' · ' + o.produktas + ' · ' + o.busena)}" onclick="openEditOrder('${escapeHtml(o.seka)}')" style="cursor:pointer">
+      const orderDateHint = o._isOrderDate ? ' · (užs. data)' : '';
+      return `<span class="cal-order ${oc}" title="${escapeHtml(o.uzsakovas + ' · ' + o.produktas + ' · ' + (o.busena||'—') + orderDateHint)}" onclick="openEditOrder('${escapeHtml(o.seka)}')" style="cursor:pointer">
         <span class="cal-o-prod">${escapeHtml(o.produktas||'—')}${m3 ? `<span class="cal-o-kiekis"> · ${fmtM3(m3)} m³</span>` : ''}</span>
-        <div class="cal-o-klientas">${escapeHtml(o.uzsakovas||'')}</div>
+        <div class="cal-o-klientas">${escapeHtml(o.uzsakovas||'')}${o._isOrderDate ? ' <span style="opacity:0.55">(užs.)</span>' : ''}</div>
       </span>`;
     }).join('');
     const more = '';
