@@ -724,6 +724,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
       <span id="wk-range" style="font-weight:700;min-width:230px;text-align:center;font-size:14px"></span>
       <button class="cal-nav-btn" onclick="navigateWeek(1)">›</button>
       <button class="ov-back" onclick="printWeek()" style="margin-left:0.6rem">🖨 Spausdinti</button>
+      <button class="ov-back" onclick="exportWeekCSV()" style="margin-left:0.4rem;white-space:nowrap">⬇ Excel</button>
     </div>
   </div>
   <div class="week-body">
@@ -1633,6 +1634,29 @@ function closeWeek() {
 }
 function navigateWeek(dir) { weekOffset += dir; renderWeek(); }
 function printWeek() { window.print(); }
+
+function exportWeekCSV() {
+  const mon = new Date(); mon.setDate(mon.getDate() - (mon.getDay() + 6) % 7 + weekOffset * 7);
+  const rows = [['Data','Diena','Produktas','m³','Užsakovas','Būsena','Užsakymo nr','Transportas','Komentaras']];
+  const DOW = ['Pirmadienis','Antradienis','Trečiadienis','Ketvirtadienis','Penktadienis','Šeštadienis','Sekmadienis'];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(mon); d.setDate(mon.getDate() + i);
+    const ds = toDateStr(d);
+    ALL_DATA
+      .filter(o => o.krovimo_data === ds)
+      .sort((a, b) => (a.produktas||'').localeCompare(b.produktas||''))
+      .forEach(o => {
+        const m3 = calcM3(o);
+        rows.push([ds, DOW[i], o.produktas||'', m3 != null ? String(m3).replace('.',',') : '', o.uzsakovas||'', o.busena||'', o.uzsakymo_nr||'', o.transportas||'', o.komentaras||'']);
+      });
+  }
+  const d0 = toDateStr(mon); const d1 = toDateStr(new Date(mon.getTime() + 6*86400000));
+  const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g,'""') + '"').join(';')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8;'}));
+  a.download = 'savaite-' + d0 + '--' + d1 + '.csv';
+  a.click();
+}
 
 function exportCalendarCSV() {
   const MONTH_LT = ['Sausis','Vasaris','Kovas','Balandis','Gegužė','Birželis','Liepa','Rugpjūtis','Rugsėjis','Spalis','Lapkritis','Gruodis'];
