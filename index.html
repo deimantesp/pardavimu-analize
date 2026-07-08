@@ -321,6 +321,25 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 .crm-badge { display: inline-block; font-size: 10px; font-weight: 700; background: #e8f0fe; color: #1A4F80; border-radius: 5px; padding: 1px 6px; margin-left: 5px; vertical-align: middle; }
 .crm-only-row td { color: #6e6e73; }
 
+/* CRM edit modal */
+#crm-modal { display:none; position:fixed; inset:0; z-index:900; background:rgba(0,0,0,0.55); align-items:center; justify-content:center; padding:1rem; }
+#crm-modal.open { display:flex; }
+.crm-modal-box { background:white; border-radius:18px; width:100%; max-width:680px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.25); }
+.crm-modal-head { background:#1A4F80; color:white; padding:1rem 1.3rem; display:flex; align-items:center; gap:0.7rem; flex-shrink:0; }
+.crm-modal-title { font-weight:800; font-size:16px; flex:1; }
+.crm-modal-body { overflow-y:auto; padding:1.2rem 1.3rem; display:flex; flex-direction:column; gap:0.7rem; }
+.crm-modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem 1rem; }
+@media(max-width:600px){ .crm-modal-grid { grid-template-columns:1fr; } }
+.crm-f { display:flex; flex-direction:column; gap:3px; }
+.crm-f.full { grid-column:1/-1; }
+.crm-f label { font-size:10.5px; font-weight:700; color:#6e6e73; text-transform:uppercase; letter-spacing:0.4px; }
+.crm-f input, .crm-f textarea { border:1px solid #d1d1d6; border-radius:8px; padding:7px 10px; font-family:'Montserrat',sans-serif; font-size:13px; outline:none; resize:vertical; }
+.crm-f input:focus, .crm-f textarea:focus { border-color:#1A4F80; box-shadow:0 0 0 2px rgba(26,79,128,0.15); }
+.crm-f textarea { min-height:70px; }
+.crm-f textarea.tall { min-height:120px; }
+.crm-modal-foot { padding:0.9rem 1.3rem; border-top:1px solid #f2f2f7; display:flex; gap:0.6rem; justify-content:flex-end; flex-shrink:0; }
+#crm-save-msg { font-size:12px; margin-right:auto; align-self:center; }
+
 /* Savaitės krovinių planas */
 #week-overlay { display: none; position: fixed; inset: 0; z-index: 520; background: #f0f2f5; flex-direction: column; overflow-y: auto; }
 #week-overlay.open { display: flex; }
@@ -605,6 +624,37 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
           <tbody id="customer-orders-tbody"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- CRM edit modal -->
+<div id="crm-modal">
+  <div class="crm-modal-box">
+    <div class="crm-modal-head">
+      <span class="crm-modal-title">✏️ Redaguoti CRM įrašą</span>
+      <button class="om-x" onclick="closeCRMEdit()">✕</button>
+    </div>
+    <div class="crm-modal-body">
+      <div class="crm-modal-grid">
+        <div class="crm-f"><label>Įmonė</label><input id="ce-imone" type="text"></div>
+        <div class="crm-f"><label>Šalis</label><input id="ce-salis" type="text"></div>
+        <div class="crm-f full"><label>Adresas</label><input id="ce-adresas" type="text"></div>
+        <div class="crm-f"><label>Sektorius</label><input id="ce-sektorius" type="text"></div>
+        <div class="crm-f"><label>Produktas (domina)</label><input id="ce-produktas" type="text"></div>
+        <div class="crm-f full"><label>Kontaktai (tel., el. paštas)</label><textarea id="ce-kontaktas"></textarea></div>
+        <div class="crm-f full"><label>Pastabos (poreikis, metinis kiekis)</label><textarea id="ce-pastabos"></textarea></div>
+        <div class="crm-f"><label>Iš kur gautas kontaktas</label><input id="ce-iskur" type="text"></div>
+        <div class="crm-f"><label>Paskutinis kontaktas (data)</label><input id="ce-kada" type="text" placeholder="pvz. 2026-07-08"></div>
+        <div class="crm-f full"><label>Ryšys / susijusios įmonės</label><textarea id="ce-rysys"></textarea></div>
+        <div class="crm-f full"><label>Kas buvo kalbėta (NUOLAT PILDOMA)</label><textarea id="ce-kas" class="tall"></textarea></div>
+        <div class="crm-f full"><label>Kas buvo nutarta</label><textarea id="ce-nutarta"></textarea></div>
+      </div>
+    </div>
+    <div class="crm-modal-foot">
+      <span id="crm-save-msg"></span>
+      <button class="om-cancel" onclick="closeCRMEdit()">Atšaukti</button>
+      <button class="om-save" id="crm-save-btn" onclick="saveCRMEdit()">Išsaugoti</button>
     </div>
   </div>
 </div>
@@ -2015,6 +2065,7 @@ function openCustomer(name) {
       const renderOne = crm => `<div class="card crm-card" style="margin-bottom:0.8rem">
         <div class="card-title">📋 ${escapeHtml(crm.imone)}
           <span class="card-title-sub">${escapeHtml(crm.salis)}${crm.sektorius ? ' · ' + escapeHtml(crm.sektorius) : ''}</span>
+          <button class="mtoggle" style="margin-left:auto;background:#1A4F80;color:#fff" onclick="openCRMEdit(CRM_DATA.find(c=>c.imone===${JSON.stringify(crm.imone)}))">✏️ Redaguoti</button>
         </div>
         <div class="crm-grid">
           ${row('📍 Adresas', escapeHtml(crm.adresas))}
@@ -2081,6 +2132,91 @@ function openCRMCardDirect(crm) {
   document.getElementById('customer-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   window.scrollTo(0, 0);
+}
+
+/* ── CRM Edit ── */
+let _crmEditOrig = null; // originalus įmonės pavadinimas (radimui Sheet'e)
+
+function openCRMEdit(crm) {
+  _crmEditOrig = crm.imone;
+  const v = id => document.getElementById(id);
+  v('ce-imone').value    = crm.imone    || '';
+  v('ce-salis').value    = crm.salis    || '';
+  v('ce-adresas').value  = crm.adresas  || '';
+  v('ce-sektorius').value= crm.sektorius|| '';
+  v('ce-produktas').value= crm.produktas|| '';
+  v('ce-kontaktas').value= crm.kontaktas|| '';
+  v('ce-pastabos').value = crm.pastabos || '';
+  v('ce-iskur').value    = crm.isKur    || '';
+  v('ce-kada').value     = crm.kada     || '';
+  v('ce-rysys').value    = crm.rysys    || '';
+  v('ce-kas').value      = crm.kas      || '';
+  v('ce-nutarta').value  = crm.nutarta  || '';
+  document.getElementById('crm-save-msg').textContent = '';
+  document.getElementById('crm-modal').classList.add('open');
+}
+
+function closeCRMEdit() {
+  document.getElementById('crm-modal').classList.remove('open');
+  _crmEditOrig = null;
+}
+
+async function saveCRMEdit() {
+  const btn = document.getElementById('crm-save-btn');
+  const msg = document.getElementById('crm-save-msg');
+  const v = id => document.getElementById(id).value.trim();
+  const token = localStorage.getItem('po_secret') || '';
+
+  btn.disabled = true; btn.textContent = '↻ Saugoma…'; msg.textContent = '';
+
+  const payload = {
+    mode: 'crm_update', token,
+    imone:     _crmEditOrig, // ieškoti pagal originalų pavadinimą
+    salis:     v('ce-salis'),
+    // imone laukas — galima pervadinti
+    imoneName: v('ce-imone'),
+    adresas:   v('ce-adresas'),
+    sektorius: v('ce-sektorius'),
+    produktas: v('ce-produktas'),
+    kontaktas: v('ce-kontaktas'),
+    pastabos:  v('ce-pastabos'),
+    isKur:     v('ce-iskur'),
+    kada:      v('ce-kada'),
+    rysys:     v('ce-rysys'),
+    kas:       v('ce-kas'),
+    nutarta:   v('ce-nutarta'),
+  };
+
+  try {
+    const res  = await fetch(WRITE_ENDPOINT, { method: 'POST', body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Klaida');
+
+    // Atnaujinti CRM_DATA atmintyje
+    const idx = CRM_DATA.findIndex(c => c.imone === _crmEditOrig);
+    const updated = {
+      imone: v('ce-imone'), salis: v('ce-salis'), adresas: v('ce-adresas'),
+      sektorius: v('ce-sektorius'), produktas: v('ce-produktas'),
+      kontaktas: v('ce-kontaktas'), pastabos: v('ce-pastabos'),
+      isKur: v('ce-iskur'), kada: v('ce-kada'), rysys: v('ce-rysys'),
+      kas: v('ce-kas'), nutarta: v('ce-nutarta'),
+    };
+    if (idx >= 0) CRM_DATA[idx] = updated;
+
+    msg.textContent = '✓ Išsaugota'; msg.style.color = '#1A7A4A';
+    btn.disabled = false; btn.textContent = 'Išsaugoti';
+
+    // Atnaujinti rodomą kortelę
+    if (CURRENT_CUSTOMER) {
+      const fillFn = document.getElementById('customer-crm')._fillCRM;
+      if (fillFn) fillFn(CURRENT_CUSTOMER);
+      else { const crmEl = document.getElementById('customer-crm'); crmEl.innerHTML = ''; }
+    }
+    setTimeout(() => closeCRMEdit(), 800);
+  } catch(e) {
+    msg.textContent = '✕ ' + e.message; msg.style.color = '#C0392B';
+    btn.disabled = false; btn.textContent = 'Išsaugoti';
+  }
 }
 
 function closeCustomer() {
