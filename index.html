@@ -1538,7 +1538,7 @@ function renderCalendar(year, month) {
     const dow      = (d.getDay() + 6) % 7;
     const isWknd   = dow >= 5;
     const holiday  = inMonth ? getLtHoliday(d) : null;
-    const orders   = inMonth ? (byDate[ds] || []) : [];
+    const orders   = inMonth ? (byDate[ds] || []).slice().sort((a,b) => (a.produktas||'').localeCompare(b.produktas||'')) : [];
 
     const cls = ['cal-cell',
       !inMonth              ? 'out-of-month' : '',
