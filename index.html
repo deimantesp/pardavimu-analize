@@ -701,6 +701,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
       </select>
       <select class="cal-sel" id="cal-year-sel" onchange="onCalSelChange()"></select>
       <button class="cal-nav-btn" onclick="navigateCalendar(1)">›</button>
+      <button class="ov-back" onclick="exportCalendarCSV()" style="margin-left:0.4rem;white-space:nowrap">⬇ Excel</button>
     </div>
   </div>
   <div class="cal-body">
@@ -1632,6 +1633,47 @@ function closeWeek() {
 }
 function navigateWeek(dir) { weekOffset += dir; renderWeek(); }
 function printWeek() { window.print(); }
+
+function exportCalendarCSV() {
+  const MONTH_LT = ['Sausis','Vasaris','Kovas','Balandis','Gegužė','Birželis','Liepa','Rugpjūtis','Rugsėjis','Spalis','Lapkritis','Gruodis'];
+  const precise = /^\d{4}-\d{2}-\d{2}$/;
+  const rows = [['Data','Krovimo data','Užsakovas','Produktas','m³','Būsena','Užsakymo nr','Komentaras']];
+
+  // Surenkam visus užsakymus šio mėnesio dienomis (ta pati logika kaip renderCalendar)
+  const prefix = calYear + '-' + String(calMonth + 1).padStart(2, '0');
+  ALL_DATA
+    .filter(d => {
+      const dt = precise.test(d.krovimo_data) ? d.krovimo_data
+               : precise.test(d.uzsakymo_data) ? d.uzsakymo_data : null;
+      return dt && dt.startsWith(prefix);
+    })
+    .sort((a, b) => {
+      const dtA = precise.test(a.krovimo_data) ? a.krovimo_data : a.uzsakymo_data;
+      const dtB = precise.test(b.krovimo_data) ? b.krovimo_data : b.uzsakymo_data;
+      return dtA.localeCompare(dtB) || (a.produktas || '').localeCompare(b.produktas || '');
+    })
+    .forEach(d => {
+      const m3 = calcM3(d);
+      rows.push([
+        d.uzsakymo_data || '',
+        d.krovimo_data  || '',
+        d.uzsakovas     || '',
+        d.produktas     || '',
+        m3 != null ? String(m3).replace('.', ',') : '',
+        d.busena        || '',
+        d.uzsakymo_nr   || '',
+        d.komentaras    || '',
+      ]);
+    });
+
+  const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+  const bom = '﻿'; // BOM kad Excel teisingai rodytų lietuviškas raides
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'kalendorius-' + calYear + '-' + String(calMonth + 1).padStart(2, '0') + '-' + MONTH_LT[calMonth] + '.csv';
+  a.click();
+}
 
 const PROD_ORDER = ['medium','ekstra','extra','ekstra 1-6','extra 1-6','premium','palaidas','mix','silos','silosas'];
 function prodRank(p) { const i = PROD_ORDER.indexOf((p || '').toLowerCase().trim()); return i < 0 ? 900 : i; }
