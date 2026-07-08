@@ -378,6 +378,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:1.1rem">
+    <button class="nav-btn" onclick="openGamyba()">🏭 Gamyba</button>
     <button class="nav-btn" onclick="openClients()">👥 Klientai</button>
     <div class="header-meta">
       <div id="hdr-date"></div>
@@ -680,6 +681,50 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
         </thead>
         <tbody id="pending-tbody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- Gamyba overlay -->
+<div id="gamyba-overlay" style="display:none;position:fixed;inset:0;z-index:500;background:#f0f2f5;flex-direction:column;overflow-y:auto">
+  <div class="ov-header" style="background:#7A3B00;gap:0.6rem;flex-wrap:wrap">
+    <button class="ov-back" onclick="closeGamyba()">← Atgal</button>
+    <span class="ov-title">🏭 Gamybos analizė</span>
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto">
+      <button class="cal-nav-btn" onclick="gamybaNav(-1)">‹</button>
+      <select class="cal-sel" id="gam-month-sel" onchange="gamybaSel()">
+        <option value="0">Sausis</option><option value="1">Vasaris</option><option value="2">Kovas</option>
+        <option value="3">Balandis</option><option value="4">Gegužė</option><option value="5">Birželis</option>
+        <option value="6">Liepa</option><option value="7">Rugpjūtis</option><option value="8">Rugsėjis</option>
+        <option value="9">Spalis</option><option value="10">Lapkritis</option><option value="11">Gruodis</option>
+      </select>
+      <select class="cal-sel" id="gam-year-sel" onchange="gamybaSel()"></select>
+      <button class="cal-nav-btn" onclick="gamybaNav(1)">›</button>
+    </div>
+  </div>
+  <div style="padding:1.2rem 1.5rem 2rem;max-width:1400px;width:100%;margin:0 auto">
+    <div id="gam-loading" style="text-align:center;padding:3rem;color:#6e6e73;font-size:15px">Kraunama…</div>
+    <div id="gam-body" style="display:none">
+      <!-- KPI -->
+      <div id="gam-kpi" class="kpi-row" style="margin-bottom:1.2rem"></div>
+      <!-- Produktai + Pamainos -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem">
+        <div class="card">
+          <div class="card-title">Produktai · m³</div>
+          <div id="gam-products"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Pamainos · m³</div>
+          <div id="gam-shifts"></div>
+        </div>
+      </div>
+      <!-- Dienos lentelė -->
+      <div class="card">
+        <div class="card-title">Dienos duomenys</div>
+        <div style="overflow-x:auto">
+          <table id="gam-table" style="width:100%;border-collapse:collapse;font-size:12px"></table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -2148,6 +2193,172 @@ document.getElementById('auth-token').addEventListener('keydown', e => {
 });
 
 tryLoad();
+
+/* ══════════════════════════════════════════════
+   GAMYBOS ANALIZĖ — overlay
+   Skaito gamybos-lenta CSV (tas pats šaltinis)
+   ══════════════════════════════════════════════ */
+const GAMYBA_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTRGeNdfu4A-DOF4jONXpTCKaSkE1uUpLXa94HHkNPw1mhIoWHNcKwhvoSL22Nh48DEV2DDMZ1KXprI/pub?output=csv';
+let GAMYBA_DATA = null;
+let gamYear, gamMonth;
+
+async function openGamyba() {
+  document.getElementById('gamyba-overlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  if (!GAMYBA_DATA) await loadGamyba();
+  else renderGamyba();
+}
+function closeGamyba() {
+  document.getElementById('gamyba-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+async function loadGamyba() {
+  document.getElementById('gam-loading').style.display = '';
+  document.getElementById('gam-body').style.display = 'none';
+  try {
+    const resp = await fetch(GAMYBA_URL + '&t=' + Date.now());
+    const text = await resp.text();
+    const rows = parseCSV(text).filter(r => r.some(c => c.trim()));
+    const hdrs = rows[0].map(h => h.trim().toLowerCase());
+    const n = v => parseFloat(String(v||'').replace(',','.')) || 0;
+    const M3  = ['produktas premium m3','produktas extra m3','produktas ekstra m3','produktas medium m3',
+                 'produktas 0-1mm m3','produktas a silos m3','produktas b silos m3','produktas c silos m3'];
+    const PROD_LABELS = {'produktas premium m3':'Premium','produktas extra m3':'Extra',
+                         'produktas ekstra m3':'Ekstra','produktas medium m3':'Medium',
+                         'produktas 0-1mm m3':'0-1mm','produktas a silos m3':'A Silos',
+                         'produktas b silos m3':'B Silos','produktas c silos m3':'C Silos'};
+    GAMYBA_DATA = rows.slice(1).map(vals => {
+      const o = {}; hdrs.forEach((h,i) => { o[h] = (vals[i]||'').trim(); });
+      const prods = {};
+      M3.forEach(k => { if (n(o[k]) > 0) prods[PROD_LABELS[k]||k] = n(o[k]); });
+      return {
+        date:  o.date||'', shift: parseInt(o['pamaina']||o['shift'])||0,
+        type:  o['pamaina tip']||o['type']||'',
+        m3:    M3.reduce((s,k) => s+n(o[k]),0),
+        waste: n(o['krituliai']||o['krit']) + n(o['e maisai']) + n(o['e bb']),
+        gas:   n(o['dujos m3']||o['gas']),
+        kwh:   n(o['elektra kwh']||o['kwh']),
+        prods,
+      };
+    }).filter(d => d.date && d.shift > 0);
+
+    // Pradiniai metai/mėnuo — paskutinis su duomenimis
+    const dates = GAMYBA_DATA.map(d=>d.date).filter(Boolean).sort();
+    const last = dates[dates.length-1] || toDateStr(new Date());
+    gamYear  = parseInt(last.substring(0,4));
+    gamMonth = parseInt(last.substring(5,7))-1;
+
+    // Metų pasirinkimas
+    const years = [...new Set(dates.map(d=>d.substring(0,4)))].sort().reverse();
+    const ySel = document.getElementById('gam-year-sel');
+    ySel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join('');
+
+    renderGamyba();
+  } catch(e) {
+    document.getElementById('gam-loading').textContent = 'Klaida: ' + e.message;
+  }
+}
+
+function gamybaNav(dir) {
+  gamMonth += dir;
+  if (gamMonth < 0)  { gamMonth = 11; gamYear--; }
+  if (gamMonth > 11) { gamMonth = 0;  gamYear++; }
+  renderGamyba();
+}
+function gamybaSel() {
+  gamMonth = parseInt(document.getElementById('gam-month-sel').value);
+  gamYear  = parseInt(document.getElementById('gam-year-sel').value);
+  renderGamyba();
+}
+
+function renderGamyba() {
+  document.getElementById('gam-month-sel').value = gamMonth;
+  document.getElementById('gam-year-sel').value  = gamYear;
+  const prefix = gamYear + '-' + String(gamMonth+1).padStart(2,'0');
+  const data = GAMYBA_DATA.filter(d => d.date.startsWith(prefix));
+
+  document.getElementById('gam-loading').style.display = 'none';
+  document.getElementById('gam-body').style.display = '';
+
+  // ── KPI ──
+  const totM3    = data.reduce((s,d) => s+d.m3, 0);
+  const totWaste = data.reduce((s,d) => s+d.waste, 0);
+  const totGas   = data.reduce((s,d) => s+d.gas, 0);
+  const days     = [...new Set(data.map(d=>d.date))].length;
+  document.getElementById('gam-kpi').innerHTML = [
+    {label:'Iš viso m³', val: totM3.toFixed(1)+' m³', color:'#0A2342'},
+    {label:'Darbo dienų', val: days, color:'#1A4F80'},
+    {label:'Atliekos', val: totWaste>0 ? totWaste.toFixed(0)+' kg' : '—', color:'#C0392B'},
+    {label:'Dujos', val: totGas>0 ? totGas.toLocaleString('lt-LT')+' m³' : '—', color:'#7A5200'},
+  ].map(k=>`<div class="kpi-card" style="border-top:3px solid ${k.color}">
+    <div class="kpi-label">${k.label}</div>
+    <div class="kpi-value" style="color:${k.color}">${k.val}</div>
+  </div>`).join('');
+
+  // ── Produktai ──
+  const prodTotals = {};
+  data.forEach(d => Object.entries(d.prods).forEach(([p,v]) => { prodTotals[p]=(prodTotals[p]||0)+v; }));
+  const prodSorted = Object.entries(prodTotals).sort((a,b)=>b[1]-a[1]);
+  const maxProd = prodSorted[0]?.[1] || 1;
+  document.getElementById('gam-products').innerHTML = prodSorted.length ? prodSorted.map(([p,v])=>`
+    <div style="margin-bottom:0.55rem">
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:3px">
+        <span>${escapeHtml(p)}</span><span style="color:#1A7A4A">${v.toFixed(1)} m³</span>
+      </div>
+      <div style="height:8px;background:#e5e5ea;border-radius:4px">
+        <div style="height:8px;border-radius:4px;background:#1A7A4A;width:${(v/maxProd*100).toFixed(1)}%"></div>
+      </div>
+    </div>`).join('') : '<div style="color:#8e8e93;font-size:13px">Nėra duomenų</div>';
+
+  // ── Pamainos ──
+  const shiftTotals = {};
+  data.forEach(d => { const k='Pamaina '+d.shift; shiftTotals[k]=(shiftTotals[k]||0)+d.m3; });
+  const shiftSorted = Object.entries(shiftTotals).sort((a,b)=>a[0].localeCompare(b[0]));
+  const shiftColors = ['#C47A00','#2A6FAD','#1A7A4A','#C0392B'];
+  const maxShift = shiftSorted[0]?.[1] || 1;
+  document.getElementById('gam-shifts').innerHTML = shiftSorted.length ? shiftSorted.map(([s,v],i)=>`
+    <div style="margin-bottom:0.55rem">
+      <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:3px">
+        <span>${escapeHtml(s)}</span><span style="color:${shiftColors[i%4]}">${v.toFixed(1)} m³</span>
+      </div>
+      <div style="height:8px;background:#e5e5ea;border-radius:4px">
+        <div style="height:8px;border-radius:4px;background:${shiftColors[i%4]};width:${(v/maxShift*100).toFixed(1)}%"></div>
+      </div>
+    </div>`).join('') : '<div style="color:#8e8e93;font-size:13px">Nėra duomenų</div>';
+
+  // ── Dienos lentelė ──
+  const byDay = {};
+  data.forEach(d => {
+    if (!byDay[d.date]) byDay[d.date] = [];
+    byDay[d.date].push(d);
+  });
+  const allProds = [...new Set(data.flatMap(d=>Object.keys(d.prods)))].sort();
+  const thStyle = 'padding:6px 8px;background:#f2f2f7;font-weight:700;font-size:11px;text-align:left;white-space:nowrap;border-bottom:2px solid #e5e5ea';
+  const tdStyle = 'padding:5px 8px;font-size:12px;border-bottom:1px solid #f0f0f0';
+  const thead = `<tr><th style="${thStyle}">Data</th><th style="${thStyle}">Pamaina</th>
+    ${allProds.map(p=>`<th style="${thStyle}">${escapeHtml(p)}</th>`).join('')}
+    <th style="${thStyle}">Viso m³</th><th style="${thStyle}">Atliekos kg</th><th style="${thStyle}">Dujos m³</th></tr>`;
+  const tbody = Object.entries(byDay).sort(([a],[b])=>a.localeCompare(b)).flatMap(([date, shifts]) => {
+    const dayM3 = shifts.reduce((s,d)=>s+d.m3,0);
+    const rows = shifts.sort((a,b)=>a.shift-b.shift).map(d=>`<tr>
+      <td style="${tdStyle}">${date.slice(5)}</td>
+      <td style="${tdStyle}">P${d.shift}</td>
+      ${allProds.map(p=>`<td style="${tdStyle};text-align:right">${d.prods[p]?.toFixed(1)||'—'}</td>`).join('')}
+      <td style="${tdStyle};font-weight:700;text-align:right">${d.m3.toFixed(1)}</td>
+      <td style="${tdStyle};text-align:right;color:#C0392B">${d.waste>0?d.waste.toFixed(0):'—'}</td>
+      <td style="${tdStyle};text-align:right">${d.gas>0?d.gas.toFixed(0):'—'}</td>
+    </tr>`).join('');
+    const sumRow = shifts.length > 1 ? `<tr style="background:#f8f8f8">
+      <td style="${tdStyle};font-weight:800">${date.slice(5)}</td>
+      <td style="${tdStyle};font-weight:800;color:#555">Diena</td>
+      ${allProds.map(p=>`<td style="${tdStyle};font-weight:700;text-align:right">${shifts.reduce((s,d)=>s+(d.prods[p]||0),0).toFixed(1)}</td>`).join('')}
+      <td style="${tdStyle};font-weight:800;text-align:right;color:#1A7A4A">${dayM3.toFixed(1)}</td>
+      <td style="${tdStyle};text-align:right"></td><td style="${tdStyle};text-align:right"></td>
+    </tr>` : '';
+    return [rows, sumRow];
+  });
+  document.getElementById('gam-table').innerHTML = `<thead>${thead}</thead><tbody>${tbody.join('')}</tbody>`;
+}
 </script>
 </body>
 </html>
