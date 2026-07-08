@@ -2303,6 +2303,7 @@ const GAM_SERIES = {
   'Silos':      { color:'#2B6CB0', fn: d => (d.prods['A Silos']||0)+(d.prods['B Silos']||0)+(d.prods['C Silos']||0) },
   '0-1mm':      { color:'#AEADB3', fn: d => d.prods['0-1mm']||0 },
   'Dujos m³':   { color:'#C0392B', fn: d => d.gas },
+  'Dujos/m³':   { color:'#E07055', fn: d => d.m3 > 0 ? +(d.gas/d.m3).toFixed(2) : 0 },
   'Žaliavos kg':{ color:'#7A5200', fn: d => d.raw },
   'Krituliai':  { color:'#E07055', fn: d => d.krituliai },
   'Smėlis':     { color:'#A0522D', fn: d => d.smelis },
