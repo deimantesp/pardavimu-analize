@@ -687,39 +687,40 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
 
 <!-- Gamyba overlay -->
 <div id="gamyba-overlay" style="display:none;position:fixed;inset:0;z-index:500;background:#f0f2f5;flex-direction:column;overflow-y:auto">
-  <div class="ov-header" style="background:#7A3B00;gap:0.5rem;flex-wrap:wrap;align-items:center">
+  <div class="ov-header" style="background:#7A3B00;gap:0.6rem;flex-wrap:wrap">
     <button class="ov-back" onclick="closeGamyba()">← Atgal</button>
     <span class="ov-title">🏭 Gamybos analizė</span>
-    <!-- Mode tabs -->
-    <div style="display:flex;gap:0.25rem;margin-left:0.4rem">
-      <button id="gbt0" onclick="setGamMode(0)" style="padding:5px 13px;border-radius:6px;border:1px solid rgba(255,255,255,0.45);background:rgba(255,255,255,0.22);color:#fff;font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">Mėnuo</button>
-      <button id="gbt1" onclick="setGamMode(1)" style="padding:5px 13px;border-radius:6px;border:1px solid rgba(255,255,255,0.45);background:transparent;color:rgba(255,255,255,0.75);font-weight:400;font-size:12px;cursor:pointer;font-family:inherit">Metinis</button>
-      <button id="gbt2" onclick="setGamMode(2)" style="padding:5px 13px;border-radius:6px;border:1px solid rgba(255,255,255,0.45);background:transparent;color:rgba(255,255,255,0.75);font-weight:400;font-size:12px;cursor:pointer;font-family:inherit">Pagal mėnesį</button>
-    </div>
-    <!-- Selectors: mode 0 (Month+Year) -->
-    <div id="gam-sel-0" style="display:flex;align-items:center;gap:0.5rem;margin-left:auto">
-      <button class="cal-nav-btn" onclick="gamybaNav(-1)">‹</button>
-      <select class="cal-sel" id="gam-month-sel" onchange="gamybaSel()">
-        <option value="0">Sausis</option><option value="1">Vasaris</option><option value="2">Kovas</option>
-        <option value="3">Balandis</option><option value="4">Gegužė</option><option value="5">Birželis</option>
-        <option value="6">Liepa</option><option value="7">Rugpjūtis</option><option value="8">Rugsėjis</option>
-        <option value="9">Spalis</option><option value="10">Lapkritis</option><option value="11">Gruodis</option>
-      </select>
-      <select class="cal-sel" id="gam-year-sel" onchange="gamybaSel()"></select>
-      <button class="cal-nav-btn" onclick="gamybaNav(1)">›</button>
-    </div>
-    <!-- Selectors: mode 1 (Year) -->
-    <div id="gam-sel-1" style="display:none;align-items:center;gap:0.5rem;margin-left:auto">
-      <select class="cal-sel" id="gam-ann-year" onchange="renderGamybaAnnual()" style="color:#0A2342;background:#f2f2f7;border-color:#e5e5ea"></select>
-    </div>
-    <!-- Selectors: mode 2 (Month across years) -->
-    <div id="gam-sel-2" style="display:none;align-items:center;gap:0.5rem;margin-left:auto">
-      <select class="cal-sel" id="gam-cross-month" onchange="renderGamybaCrossYear()">
-        <option value="01">Sausis</option><option value="02">Vasaris</option><option value="03">Kovas</option>
-        <option value="04">Balandis</option><option value="05">Gegužė</option><option value="06">Birželis</option>
-        <option value="07">Liepa</option><option value="08">Rugpjūtis</option><option value="09">Rugsėjis</option>
-        <option value="10">Spalis</option><option value="11">Lapkritis</option><option value="12">Gruodis</option>
-      </select>
+    <!-- Dešinis kampas: mode tab'ai + selektoriai -->
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.3rem;margin-left:auto">
+      <!-- Mode tabs -->
+      <div style="display:flex;gap:0.2rem">
+        <button id="gbt0" onclick="setGamMode(0)" style="padding:4px 11px;border-radius:5px;border:1px solid rgba(255,255,255,0.45);background:rgba(255,255,255,0.22);color:#fff;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit">Mėnuo</button>
+        <button id="gbt1" onclick="setGamMode(1)" style="padding:4px 11px;border-radius:5px;border:1px solid rgba(255,255,255,0.45);background:transparent;color:rgba(255,255,255,0.75);font-weight:400;font-size:11px;cursor:pointer;font-family:inherit">Metinis</button>
+        <button id="gbt2" onclick="setGamMode(2)" style="padding:4px 11px;border-radius:5px;border:1px solid rgba(255,255,255,0.45);background:transparent;color:rgba(255,255,255,0.75);font-weight:400;font-size:11px;cursor:pointer;font-family:inherit">Pagal mėnesį</button>
+      </div>
+      <!-- Selectors row -->
+      <div id="gam-sel-0" style="display:flex;align-items:center;gap:0.5rem">
+        <button class="cal-nav-btn" onclick="gamybaNav(-1)">‹</button>
+        <select class="cal-sel" id="gam-month-sel" onchange="gamybaSel()">
+          <option value="0">Sausis</option><option value="1">Vasaris</option><option value="2">Kovas</option>
+          <option value="3">Balandis</option><option value="4">Gegužė</option><option value="5">Birželis</option>
+          <option value="6">Liepa</option><option value="7">Rugpjūtis</option><option value="8">Rugsėjis</option>
+          <option value="9">Spalis</option><option value="10">Lapkritis</option><option value="11">Gruodis</option>
+        </select>
+        <select class="cal-sel" id="gam-year-sel" onchange="gamybaSel()"></select>
+        <button class="cal-nav-btn" onclick="gamybaNav(1)">›</button>
+      </div>
+      <div id="gam-sel-1" style="display:none;align-items:center">
+        <select class="cal-sel" id="gam-ann-year" onchange="renderGamybaAnnual()" style="color:#0A2342;background:#f2f2f7;border-color:#e5e5ea"></select>
+      </div>
+      <div id="gam-sel-2" style="display:none;align-items:center">
+        <select class="cal-sel" id="gam-cross-month" onchange="renderGamybaCrossYear()">
+          <option value="01">Sausis</option><option value="02">Vasaris</option><option value="03">Kovas</option>
+          <option value="04">Balandis</option><option value="05">Gegužė</option><option value="06">Birželis</option>
+          <option value="07">Liepa</option><option value="08">Rugpjūtis</option><option value="09">Rugsėjis</option>
+          <option value="10">Spalis</option><option value="11">Lapkritis</option><option value="12">Gruodis</option>
+        </select>
+      </div>
     </div>
   </div>
   <div style="padding:1.2rem 1.5rem 2rem;max-width:1400px;width:100%;margin:0 auto">
