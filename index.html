@@ -2936,7 +2936,7 @@ function renderGamybaCrossYear() {
   data.forEach(d=>{ const k='Pamaina '+d.shift; shiftTotals[k]=(shiftTotals[k]||0)+d.m3; });
   const shiftSorted = Object.entries(shiftTotals).sort((a,b)=>a[0].localeCompare(b[0]));
   const shiftColors = ['#C47A00','#2A6FAD','#1A7A4A','#C0392B'];
-  const maxShift = shiftSorted[0]?.[1]||1;
+  const maxShift = shiftSorted.length ? Math.max(...shiftSorted.map(([,v])=>v)) : 1;
   document.getElementById('gam-cross-shifts').innerHTML = shiftSorted.length ? shiftSorted.map(([s,v],i)=>`
     <div style="margin-bottom:0.55rem">
       <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:3px">
@@ -3024,7 +3024,7 @@ function renderGamyba() {
   data.forEach(d => { const k='Pamaina '+d.shift; shiftTotals[k]=(shiftTotals[k]||0)+d.m3; });
   const shiftSorted = Object.entries(shiftTotals).sort((a,b)=>a[0].localeCompare(b[0]));
   const shiftColors = ['#C47A00','#2A6FAD','#1A7A4A','#C0392B'];
-  const maxShift = shiftSorted[0]?.[1] || 1;
+  const maxShift = shiftSorted.length ? Math.max(...shiftSorted.map(([,v])=>v)) : 1;
   document.getElementById('gam-shifts').innerHTML = shiftSorted.length ? shiftSorted.map(([s,v],i)=>`
     <div style="margin-bottom:0.55rem">
       <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:3px">
