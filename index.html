@@ -2536,8 +2536,11 @@ function init(data) {
     (hiddenNoDate ? ' · ⚠️ ' + hiddenNoDate + ' užsak. be tvarkingos datos nerodoma suvestinėje' : '');
   document.getElementById('loading').style.display = 'none';
 
-  // Hub nuoroda: #gamyba automatiškai atidaro Gamybos analizę
-  if (location.hash === '#gamyba') openGamyba();
+  // Hub nuoroda: automatiškai atidaro Gamybos analizę
+  if (localStorage.getItem('pa_auto_open') === 'gamyba') {
+    localStorage.removeItem('pa_auto_open');
+    openGamyba();
+  }
 }
 
 /* ── Prieigos užtvara + duomenų krovimas ──
