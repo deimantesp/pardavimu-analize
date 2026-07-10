@@ -1,0 +1,11 @@
+{
+  "name": "Pardavimų analizė",
+  "short_name": "Pardavimai",
+  "start_url": "/pardavimu-analize/",
+  "display": "standalone",
+  "background_color": "#0A2342",
+  "theme_color": "#0A2342",
+  "icons": [
+    { "src": "logo.png", "sizes": "any", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
