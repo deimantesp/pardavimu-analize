@@ -2535,6 +2535,9 @@ function init(data) {
     ' · Atsinaujina kas 5 min.' +
     (hiddenNoDate ? ' · ⚠️ ' + hiddenNoDate + ' užsak. be tvarkingos datos nerodoma suvestinėje' : '');
   document.getElementById('loading').style.display = 'none';
+
+  // Hub nuoroda: #gamyba automatiškai atidaro Gamybos analizę
+  if (location.hash === '#gamyba') openGamyba();
 }
 
 /* ── Prieigos užtvara + duomenų krovimas ──
