@@ -1355,7 +1355,7 @@ function renderTable(data) {
   const now = new Date();
   const isDate = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
 
-  let f = data;
+  let f = [...data].sort((a, b) => Number(b.seka) - Number(a.seka));
   if (statusF === 'pending') f = f.filter(isNeivykdyta);
   else if (statusF === 'veluoja') f = f.filter(isVeluoja);
   else if (statusF === '__none__') f = f.filter(d => !(d.busena || '').trim());
