@@ -537,6 +537,13 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
         </thead>
         <tbody id="orders-tbody"></tbody>
       </table>
+      <div id="load-more-wrap" style="display:none;text-align:center;padding:1rem 0">
+        <button id="load-more-btn" onclick="loadMoreOrders()"
+          style="background:#0A2342;color:#fff;border:none;border-radius:8px;padding:10px 28px;font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;cursor:pointer">
+          Rodyti daugiau
+        </button>
+        <span id="load-more-info" style="margin-left:1rem;font-size:12px;color:#8e8e93"></span>
+      </div>
     </div>
   </div>
 
@@ -1083,7 +1090,7 @@ async function loadData() {
       komentaras:    cleanCell(v[9]),
       uid:           cleanCell(v[10]),  // K stulpelis — unikalus ID (redagavimui)
     };
-  }).filter(d => d.uzsakovas && /^\d+$/.test(d.seka));
+  }).filter(d => d.uzsakovas || d.produktas);
 }
 
 /* ── Name normalization (LLM sugeneruotas žemėlapis) ──
@@ -1372,7 +1379,17 @@ function renderTable(data) {
 
   document.getElementById('table-count').textContent = `${f.length} iš ${data.length}`;
 
-  document.getElementById('orders-tbody').innerHTML = f.map(d => {
+  const visible = f.slice(0, TABLE_PAGE);
+  const wrap = document.getElementById('load-more-wrap');
+  const info = document.getElementById('load-more-info');
+  if (f.length > TABLE_PAGE) {
+    wrap.style.display = 'block';
+    info.textContent = `Rodoma ${TABLE_PAGE} iš ${f.length}`;
+  } else {
+    wrap.style.display = 'none';
+  }
+
+  document.getElementById('orders-tbody').innerHTML = visible.map(d => {
     const uzDt = parseDate(d.uzsakymo_data);
     const od = isPastLoad(d);
     let waitHtml = '';
@@ -1399,7 +1416,15 @@ function renderTable(data) {
   }).join('') || '<tr><td colspan="11" style="text-align:center;color:#8e8e93;padding:2rem">Nėra rezultatų</td></tr>';
 }
 
-function applyFilter() { renderTable(ALL_DATA); }
+let TABLE_PAGE = 10;
+let LAST_FILTERED = [];
+
+function applyFilter() { TABLE_PAGE = 10; renderTable(ALL_DATA); }
+
+function loadMoreOrders() {
+  TABLE_PAGE += 10;
+  renderTable(ALL_DATA);
+}
 
 function clearFilters() {
   ['srch','sf-status','sf-product','sf-client','sf-date-from','sf-date-to','sf-krov-from','sf-krov-to']
