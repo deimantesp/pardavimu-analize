@@ -999,8 +999,10 @@ function parseCSV(text) {
 function cleanCell(s) { return (s || '').replace(/[\r\n]+/g, ' ').trim(); }
 
 function parseDate(s) {
-  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
-  const d = new Date(s + 'T12:00:00');
+  if (!s) return null;
+  const base = s.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(base)) return null;
+  const d = new Date(base + 'T12:00:00');
   return isNaN(d) ? null : d;
 }
 
@@ -1903,7 +1905,7 @@ function exportWeekCSV() {
     const d = new Date(mon); d.setDate(mon.getDate() + i);
     const ds = toDateStr(d);
     ALL_DATA
-      .filter(o => o.krovimo_data === ds)
+      .filter(o => o.krovimo_data.startsWith(ds))
       .sort((a, b) => (a.produktas||'').localeCompare(b.produktas||''))
       .forEach(o => {
         const m3 = calcM3(o);
