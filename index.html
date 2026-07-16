@@ -1903,72 +1903,73 @@ function navigateWeek(dir) { weekOffset += dir; renderWeek(); }
 function printWeek() { window.print(); }
 
 function exportWeekCSV() {
-  // Eksportas kaip Sheets savaitės krovinių planas:
-  // kiekvienas produktas = atskira kolona; eilutės = užsakymai per dieną
+  // Eksportas su TAB separatoriumi (veikia Mac+Win Excel).
+  // Produktai = stulpeliai. Kiekvienas užsakymas = kelios eilutės:
+  // 1) laikas + klientas, 2) užs.nr, 3) valst.nr, 4) komentaras
   const mon = new Date(); mon.setDate(mon.getDate() - (mon.getDay() + 6) % 7 + weekOffset * 7);
   const d0 = toDateStr(mon);
   const d1 = toDateStr(new Date(mon.getTime() + 6 * 86400000));
-  const DOW_FULL2 = ['PIRMADIENIS','ANTRADIENIS','TREČIADIENIS','KETVIRTADIENIS','PENKTADIENIS','ŠEŠTADIENIS','SEKMADIENIS'];
+  const DOW_LT2 = ['PIRMADIENIS','ANTRADIENIS','TREČIADIENIS','KETVIRTADIENIS','PENKTADIENIS','ŠEŠTADIENIS','SEKMADIENIS'];
 
-  // Produktų stulpeliai (rūšiuoti kaip savaitės plane)
   const weekLoads = ALL_DATA.filter(o => o.krovimo_data >= d0 && o.krovimo_data <= d1);
   const products = [...new Set(weekLoads.map(o => o.produktas || '—'))]
     .sort((a, b) => prodRank(a) - prodRank(b) || a.localeCompare(b));
+  const nP = products.length;
 
-  function cell(v) {
+  function esc(v) {
     const s = String(v == null ? '' : v);
-    return /[;\n\r"]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    return /[\t\n\r"]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
+  function mkRow(arr) { return arr.map(esc).join('\t'); }
 
   const lines = [];
-  lines.push(['Savaitė ' + d0 + ' – ' + d1, 'Diena', ...products.map(() => ''), 'm³'].map(cell).join(';'));
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(mon); d.setDate(mon.getDate() + i);
     const ds = toDateStr(d);
-    const dayOrders = ALL_DATA.filter(o => o.krovimo_data === ds);
-    if (!dayOrders.length) continue;
+    const dayOrds = ALL_DATA.filter(o => o.krovimo_data === ds);
+    if (!dayOrds.length) continue;
 
-    const dayM3 = dayOrders.reduce((s, o) => s + (calcM3(o) || 0), 0);
+    const dayM3 = dayOrds.reduce((s, o) => s + (calcM3(o) || 0), 0);
 
-    // Dienos antraštė
-    lines.push([DOW_FULL2[i], ds.slice(8), ...products.map(() => ''), dayM3 ? fmtM3(dayM3) + ' m³' : ''].map(cell).join(';'));
+    // Dienos antraštė: [PIRMADIENIS, '', ..., data, m³]
+    lines.push(mkRow([DOW_LT2[i], ...Array(nP - 1).fill(''), ds.slice(5), dayM3 ? fmtM3(dayM3) + ' m³' : '']));
 
-    // Produktų antraštės su m³ suma
-    const prodTotals = products.map(p => {
-      const v = dayOrders.filter(o => (o.produktas || '—') === p).reduce((s, o) => s + (calcM3(o) || 0), 0);
-      return v ? fmtM3(v) + ' m³' : '';
-    });
-    lines.push([...products, ...prodTotals, ''].map(cell).join(';'));
-
-    // Užsakymų eilutės — kiekvienas produktas = kolona, užsakymai stulpelyje
+    // Produktų antraštė su m³ suomis
     const byProd = products.map(p =>
-      dayOrders.filter(o => (o.produktas || '—') === p)
+      dayOrds.filter(o => (o.produktas || '—') === p)
         .sort((a, b) => (a.laikas || '').localeCompare(b.laikas || '') || (a.uzsakovas || '').localeCompare(b.uzsakovas || ''))
     );
+    lines.push(mkRow([
+      ...products.map((p, pi) => {
+        const v = byProd[pi].reduce((s, o) => s + (calcM3(o) || 0), 0);
+        return p + (v ? ' · ' + fmtM3(v) + ' m³' : '');
+      }),
+      '',
+    ]));
+
+    // Užsakymai: max'as per produktus, po kelias sub-eilutes
     const maxRows = Math.max(0, ...byProd.map(arr => arr.length));
     for (let r = 0; r < maxRows; r++) {
-      const cols = byProd.map(orders => {
-        const o = orders[r];
-        if (!o) return '';
-        const parts = [];
-        if (o.laikas) parts.push(o.laikas);
-        parts.push(o.uzsakovas || '');
-        if (o.uzsakymo_nr) parts.push(o.uzsakymo_nr);
-        if (o.auto_info) parts.push(o.auto_info);
-        if (o.komentaras) parts.push(o.komentaras);
-        return parts.join('\n');
-      });
-      const m3col = byProd.map(orders => {
-        const o = orders[r]; if (!o) return '';
-        const m3 = calcM3(o); return m3 ? fmtM3(m3) + ' m³' : '';
-      }).filter(Boolean).join(' ');
-      lines.push([...cols, m3col].map(cell).join(';'));
+      const slot = byProd.map(arr => arr[r] || null);
+      const slotM3 = slot.map(o => o && calcM3(o) ? fmtM3(calcM3(o)) + ' m³' : '').filter(Boolean).join(' ');
+
+      // 1) Klientas (+ laikas)
+      lines.push(mkRow([...slot.map(o => o ? ((o.laikas ? o.laikas + '  ' : '') + (o.uzsakovas || '')) : ''), slotM3]));
+      // 2) Užsakymo nr
+      if (slot.some(o => o && o.uzsakymo_nr))
+        lines.push(mkRow([...slot.map(o => o ? (o.uzsakymo_nr || '') : ''), '']));
+      // 3) Valst. numeriai / auto info
+      if (slot.some(o => o && o.auto_info))
+        lines.push(mkRow([...slot.map(o => o ? (o.auto_info || '') : ''), '']));
+      // 4) Komentaras
+      if (slot.some(o => o && o.komentaras))
+        lines.push(mkRow([...slot.map(o => o ? (o.komentaras || '') : ''), '']));
     }
     lines.push(''); // tuščia eilutė tarp dienų
   }
 
-  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/tab-separated-values;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'savaite-' + d0 + '--' + d1 + '.csv';
