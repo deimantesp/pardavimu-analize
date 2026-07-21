@@ -666,6 +666,7 @@ body { font-family: 'Montserrat', system-ui, sans-serif; background: #f0f2f5; co
     <div class="crm-modal-body">
       <div class="crm-modal-grid">
         <div class="crm-f"><label>Įmonė</label><input id="ce-imone" type="text"></div>
+        <div class="crm-f"><label>Sutrumpintas pavadinimas <span style="font-weight:400;color:#8e8e93">(naudojamas užsakymuose)</span></label><input id="ce-trump" type="text"></div>
         <div class="crm-f"><label>Šalis</label><input id="ce-salis" type="text"></div>
         <div class="crm-f full"><label>Adresas</label><input id="ce-adresas" type="text"></div>
         <div class="crm-f"><label>Sektorius</label><input id="ce-sektorius" type="text"></div>
@@ -2356,6 +2357,7 @@ function openCRMEdit(crm) {
   _crmEditOrig = crm.imone;
   const v = id => document.getElementById(id);
   v('ce-imone').value    = crm.imone    || '';
+  v('ce-trump').value    = crm.trump    || '';
   v('ce-salis').value    = crm.salis    || '';
   v('ce-adresas').value  = crm.adresas  || '';
   v('ce-sektorius').value= crm.sektorius|| '';
@@ -2386,9 +2388,9 @@ async function saveCRMEdit() {
 
   const payload = {
     mode: 'crm_update', token,
-    imone:     _crmEditOrig, // ieškoti pagal originalų pavadinimą
+    imone:     _crmEditOrig,
+    trump:     v('ce-trump'),
     salis:     v('ce-salis'),
-    // imone laukas — galima pervadinti
     imoneName: v('ce-imone'),
     adresas:   v('ce-adresas'),
     sektorius: v('ce-sektorius'),
@@ -2410,7 +2412,7 @@ async function saveCRMEdit() {
     // Atnaujinti CRM_DATA atmintyje
     const idx = CRM_DATA.findIndex(c => c.imone === _crmEditOrig);
     const updated = {
-      imone: v('ce-imone'), salis: v('ce-salis'), adresas: v('ce-adresas'),
+      imone: v('ce-imone'), trump: v('ce-trump'), salis: v('ce-salis'), adresas: v('ce-adresas'),
       sektorius: v('ce-sektorius'), produktas: v('ce-produktas'),
       kontaktas: v('ce-kontaktas'), pastabos: v('ce-pastabos'),
       isKur: v('ce-iskur'), kada: v('ce-kada'), rysys: v('ce-rysys'),
