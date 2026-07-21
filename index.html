@@ -2105,7 +2105,7 @@ function renderWeek() {
 
 /* ── Šalių grafikas ── */
 let _salisMode = 'm3';
-async function renderSalisChart(mode) {
+function renderSalisChart(mode) {
   _salisMode = mode || _salisMode;
 
   // Mygtukų būsena
@@ -2113,9 +2113,6 @@ async function renderSalisChart(mode) {
     const btn = document.getElementById('salis-btn-' + m);
     if (btn) btn.classList.toggle('tab-btn-active', m === _salisMode);
   });
-
-  // Palaukiam kol CRM užsikrauna (promise iš loadCRM)
-  if (_crmReady) await _crmReady;
   const byCountry = {};
   (ALL_CUSTOMERS || []).forEach(r => {
     const crm = findCRM(r.name);
@@ -2851,6 +2848,10 @@ async function loadCRM() {
       nutarta:  (iNutarta >= 0 ? r[iNutarta] : '') || '',
     }));
   } catch(e) { console.warn('CRM load failed', e); }
+  // Jei Klientai overlay atidarytas — perpiešiam šalių grafiką
+  if (document.getElementById('clients-overlay')?.classList.contains('open')) {
+    renderSalisChart(_salisMode);
+  }
 }
 
 function _normN(s) {
