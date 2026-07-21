@@ -2113,6 +2113,12 @@ function renderSalisChart(mode) {
     const btn = document.getElementById('salis-btn-' + m);
     if (btn) btn.classList.toggle('tab-btn-active', m === _salisMode);
   });
+  // DEBUG: pirmą kartą parodom diagnostiką
+  const _dbg = ALL_CUSTOMERS.slice(0, 8).map(r => {
+    const c = findCRM(r.name); return r.name + ' → ' + (c ? (c.salis||'(tuščia šalis)') : 'null');
+  }).join('\n');
+  console.log('Šalių debug:', _dbg, 'CRM_DATA:', CRM_DATA.length);
+
   const byCountry = {};
   (ALL_CUSTOMERS || []).forEach(r => {
     const crm = findCRM(r.name);
