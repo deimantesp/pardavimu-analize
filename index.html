@@ -1339,7 +1339,7 @@ function renderWarning(data) {
   el.style.display = '';
   el.innerHTML = `<div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
     <span style="font-size:15px">${icon}</span>
-    <span style="font-size:13px;font-weight:800;color:#0A2342">${monName} lyginimas</span>
+    <span style="font-size:13px;font-weight:800;color:#0A2342">${monName} palyginimas · ${viewYear} vs ${lyYear}</span>
     <span style="font-size:13px;color:#0A2342">${viewYear}: <b>${currM3.toFixed(0)} m³</b> (${curr.length} užs.)</span>
     <span style="font-size:13px;color:#8e8e93">vs ${lyYear}: ${lyM3.toFixed(0)} m³ (${ly.length} užs.)</span>
     ${pct !== null ? `<span style="font-size:14px;font-weight:800;color:${color}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>` : ''}
